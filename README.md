@@ -81,4 +81,3 @@ AI：调用 command 执行 ls（或 dir），返回目录列表。
 - [xhdlphzr](https://github.com/xhdlphzr)——一个忙碌的码农
 - [zhiziwj](https://github.com/zhiziwj)——提出了一个建议，虽然没有实现，不过很有价值，同时实现了一个功能
 - [humanity687](https://github.com/humanity687)——提出了几个很有建设性的问题，已经一一研究修复
-- xhdlphzr
