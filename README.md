@@ -29,13 +29,7 @@ cd EasyMate
 ```
 
 ### 2. 创建虚拟环境并安装依赖
-```bash
-python -m venv venv
-source venv/bin/activate        # Linux/macOS
-# 或 .\venv\Scripts\activate   # Windows
-
-pip install -r requirements.txt
-```
+如果是windows打开start.bat，macOS打开start.sh即可
 
 ### 3. 配置
 复制配置文件模板并修改：
@@ -55,9 +49,8 @@ cp config.example.json config.json
 > 💡 **模型推荐**：推荐 `glm-4.7-flash` 模型，比较聪明，弱智AI发挥不出实力
 
 ### 4. 运行
-```bash
-python src/main.py
-```
+如果是windows打开run.bat，macOS打开run.sh即可
+
 输入你的问题，AI 就会调用工具帮你完成。
 
 ---
