@@ -32,19 +32,36 @@ cd EasyMate
 如果是windows打开start.bat，macOS打开start.sh即可
 
 ### 3. 配置
-复制配置文件模板并修改：
-```bash
-cp config.example.json config.json
-```
-编辑 `config.json`，填入你的 API 信息（Ollama 可填任意 key）：
+复制 `config.example.json` ，改名为 `config.json`
+
+在 `config.json` 中，你可以根据需要调整以下参数：
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `api_key` | string | - | API 密钥（必填）。Ollama 可填任意值。 |
+| `base_url` | string | - | API 基础地址（必填）。例如 Ollama 为 `http://localhost:11434/v1`，GLM 为 `https://open.bigmodel.cn/api/paas/v4`。 |
+| `model` | string | - | 模型名称（必填）。推荐 `glm-4.7-flash`、`qwen2.5:7b` 等。 |
+| `settings` | string | `"你是一个有用的AI助手。"` | 系统提示词，用于设定 AI 的角色或行为规则。 |
+| `temperature` | float | `0.8` | 生成随机性，取值范围 0~1。值越低回答越确定，越高越有创意。 |
+| `thinking` | bool | `false` | 是否启用深度思考模式（仅对 GLM 模型有效）。开启后模型会输出推理过程，但响应稍慢。 |
+| `max_iterations` | int | `100` | 工具调用的最大循环次数，防止无限循环。 |
+| `threshold` | int | `20` | 触发历史压缩的消息数量阈值。当对话消息超过此值时，会自动将最早的 10 条压缩成摘要。 |
+
+**示例配置**：
 ```json
 {
-  "api_key": "your-api-key",
-  "base_url": "http://localhost:11434/v1",
-  "model": "qwen2.5:7b",
-  "settings": "你是一个有用的AI助手。"
+    "api_key": "your-api-key-here",
+    "base_url": "http://localhost:11434/v1",
+    "model": "qwen2.5:7b",
+    "temperature": 0.8,
+    "thinking": false,
+    "max_iterations": 100,
+    "threshold": 20,
+    "settings": "你是一个有用的AI助手。"
 }
 ```
+
+> 💡 **小贴士**：修改配置后保存，新配置将在下一次对话时自动生效，无需重启服务。
 
 > 💡 **模型推荐**：推荐 `glm-4.7-flash` 模型，比较聪明，弱智AI发挥不出实力
 
