@@ -1,0 +1,27 @@
+{
+  "type": "function",
+  "function": {
+    "name": "ett",
+    "description": "使用智谱 GLM-4.6V-Flash 分析图片、视频或文件，返回文字描述。支持网络 URL 或本地文件路径，支持多个资源（用逗号分隔）。",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "urls": {
+          "type": "string",
+          "description": "媒体资源的 URL 或本地路径，多个请用英文逗号分隔（如 'a.jpg,b.png'）。支持图片、视频、常见文档格式。"
+        },
+        "prompt": {
+          "type": "string",
+          "description": "针对这些媒体资源的问题，例如“描述这张图片”或“总结视频内容”。"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["image_url", "video_url", "file_url"],
+          "description": "媒体类型，默认为 image_url。根据实际资源选择。",
+          "default": "image_url"
+        }
+      },
+      "required": ["urls", "prompt"]
+    }
+  }
+}

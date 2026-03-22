@@ -243,6 +243,22 @@
                 <input type="number" id="threshold" name="threshold" min="1" max="100" value="20">
                 <label>系统设置</label>
                 <textarea id="settings" name="settings" rows="6"></textarea>
+                <hr>
+                <h3>📸 ETT（多模态理解）工具配置</h3>
+                <label>API密钥 (ett)</label>
+                <input type="text" id="ett_api_key" name="ett_api_key" placeholder="留空则使用顶层API密钥">
+                <label>接口地址 (ett)</label>
+                <input type="text" id="ett_base_url" name="ett_base_url" placeholder="留空则使用顶层接口地址">
+                <label>模型名称 (ett)</label>
+                <input type="text" id="ett_model" name="ett_model" value="glm-4.6v-flash">
+                <label>温度 (ett)</label>
+                <input type="number" id="ett_temperature" name="ett_temperature" step="0.1" min="0" max="1" value="0.8">
+                <label>深度思考 (ett)</label>
+                <input type="checkbox" id="ett_thinking" name="ett_thinking">
+                <label>最大迭代次数 (ett)</label>
+                <input type="number" id="ett_max_iterations" name="ett_max_iterations" min="1" max="500" value="100">
+                <label>最大重试次数 (ett)</label>
+                <input type="number" id="ett_max_retries" name="ett_max_retries" min="1" max="30" value="3">
                 <button type="submit">保存配置</button>
             </form>
             <div id="config-status"></div>
@@ -355,6 +371,21 @@
                     document.getElementById('base_url').value = config.base_url || '';
                     document.getElementById('model').value = config.model || '';
                     document.getElementById('settings').value = config.settings || '';
+                    document.getElementById('temperature').value = config.temperature ?? 0.8;
+                    document.getElementById('thinking').checked = config.thinking ?? false;
+                    document.getElementById('max_iterations').value = config.max_iterations ?? 100;
+                    document.getElementById('threshold').value = config.threshold ?? 20;
+
+                    // ETT 工具配置
+                    const ett = config.tools?.ett || {};
+                    document.getElementById('ett_api_key').value = ett.api_key || '';
+                    document.getElementById('ett_base_url').value = ett.base_url || '';
+                    document.getElementById('ett_model').value = ett.model || 'glm-4.6v-flash';
+                    document.getElementById('ett_temperature').value = ett.temperature ?? 0.8;
+                    document.getElementById('ett_thinking').checked = ett.thinking ?? false;
+                    document.getElementById('ett_max_iterations').value = ett.max_iterations ?? 100;
+                    document.getElementById('ett_max_retries').value = ett.max_retries ?? 3;
+
                     configStatus.innerText = '';
                 }
             } catch (err) {
@@ -368,7 +399,22 @@
                 api_key: document.getElementById('api_key').value,
                 base_url: document.getElementById('base_url').value,
                 model: document.getElementById('model').value,
-                settings: document.getElementById('settings').value
+                settings: document.getElementById('settings').value,
+                temperature: parseFloat(document.getElementById('temperature').value),
+                thinking: document.getElementById('thinking').checked,
+                max_iterations: parseInt(document.getElementById('max_iterations').value, 10),
+                threshold: parseInt(document.getElementById('threshold').value, 10),
+                tools: {
+                    ett: {
+                        api_key: document.getElementById('ett_api_key').value,
+                        base_url: document.getElementById('ett_base_url').value,
+                        model: document.getElementById('ett_model').value,
+                        temperature: parseFloat(document.getElementById('ett_temperature').value),
+                        thinking: document.getElementById('ett_thinking').checked,
+                        max_iterations: parseInt(document.getElementById('ett_max_iterations').value, 10),
+                        max_retries: parseInt(document.getElementById('ett_max_retries').value, 10)
+                    }
+                }
             };
             try {
                 const resp = await fetch('/config', {

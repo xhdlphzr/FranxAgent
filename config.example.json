@@ -1,10 +1,21 @@
 {
-    "api_key": "your-api-key-here",
-    "base_url": "http://localhost:11434/v1",
-    "model": "qwen2.5:7b",
+    "api_key": "your-chat-api-key",
+    "base_url": "https://open.bigmodel.cn/api/paas/v4",
+    "model": "glm-4.7-flash",
     "temperature": 0.8,
     "thinking": false,
     "max_iterations": 100,
     "threshold": 20,
-    "settings": "你是一个有用的AI助手。"
+    "settings": "你是一个有用的AI助手。",
+    "tools": {
+        "ett": {
+            "api_key": "your-ett-api-key",
+            "base_url": "https://open.bigmodel.cn/api/paas/v4",
+            "model": "glm-4.6v-flash",
+            "temperature": 0.8,
+            "thinking": false,
+            "max_iterations": 100,
+            "max_retries": 20
+        }
+    }
 }

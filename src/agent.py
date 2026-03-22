@@ -80,7 +80,7 @@ class EasyMate:
     def __init__(self, key: str, url: str, model: str, settings="你是一个有用的AI助手。", max_iterations=100, temperature=0.8, thinking=False, threshold=20):
         self.client = OpenAI(api_key=key, base_url=url)
         self.model = model
-        self.settings = f"{guide}\n\n{settings}"
+        self.settings = f"{settings}\n\n---\n\n{guide}"
         self.messages = [{"role": "system", "content": self.settings}]
         self.tools = tools_metadata
         self.max_iterations = max_iterations
@@ -95,8 +95,8 @@ class EasyMate:
         - 当模型需要调用工具时，同步执行工具，并将工具调用信息打印到 stdout（可被重定向）。
         - 循环处理直到无工具调用。
         """
-        self.messages.append({"role": "user", "content": msg})
         print("AI思考中...")
+        self.messages.append({"role": "user", "content": msg})
 
         iteration = 0
         while iteration < self.max_iterations:
@@ -172,8 +172,8 @@ class EasyMate:
                 arguments = json.loads(tool_call["function"]["arguments"])
                 func = tool_functions.get(func_name)
                 if func:
-                    print(f"使用工具 {func_name}，参数 {arguments}，正在进行中...")
                     result = func(**arguments)
+                    print(f"使用工具 {func_name}，参数 {arguments}，调用结果 “{result}”")
                 else:
                     result = f"错误：未知工具 {func_name}"
                     print(result)
