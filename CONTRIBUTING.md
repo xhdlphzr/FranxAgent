@@ -23,10 +23,10 @@ git checkout -b add-工具名
 
 ### 4. 添加工具文件
 在 `tools/` 目录下创建一个以工具名称命名的文件夹（例如 `tools/weather/`）。  
-该文件夹必须包含以下三个文件：
+该文件夹必须包含以下两个个文件：
 
 #### a. `tool.py`
-- 必须包含一个名为 `execute` 的函数，接收关键字参数（与 `config.json` 中的 `properties` 一致），并返回字符串结果。
+- 必须包含一个名为 `execute` 的函数，接收关键字参数，并返回字符串结果。
 - 示例：
   ```python
   def execute(city: str) -> str:
@@ -34,30 +34,7 @@ git checkout -b add-工具名
       return f"{city} 的天气是晴天，25℃"
   ```
 
-#### b. `config.json`
-- 定义工具的 OpenAI 函数调用格式，必须包含 `type` 和 `function` 字段。
-- 示例：
-  ```json
-  {
-    "type": "function",
-    "function": {
-      "name": "weather",
-      "description": "获取指定城市的天气",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "city": {
-            "type": "string",
-            "description": "城市名称"
-          }
-        },
-        "required": ["city"]
-      }
-    }
-  }
-  ```
-
-#### c. `README.md`
+#### b. `README.md`
 - 用简洁的格式说明工具的用途、输入、输出和注意事项（模仿已有工具）。
 - 示例见 `tools/time/README.md`。
 

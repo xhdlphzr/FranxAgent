@@ -209,12 +209,28 @@ You should have received a copy of the GNU General Public License along with Eas
 
         /* MCP 服务器列表样式 */
         .mcp-server-item {
-            margin: 5px 0;
-            padding: 8px;
-            border-bottom: 1px solid #eee;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
         }
         .mcp-server-item input {
-            margin-right: 8px;
+            display: block;
+            width: calc(100% - 20px);
+            margin: 5px 0;
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        .mcp-server-item button {
+            margin-top: 5px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
         }
         .btn-secondary {
             background: #6c757d;
@@ -224,17 +240,6 @@ You should have received a copy of the GNU General Public License along with Eas
             border-radius: 5px;
             cursor: pointer;
             margin-right: 10px;
-        }
-        .btn-primary {
-            background: #1e90ff;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .mcp-servers-buttons {
-            margin: 10px 0;
         }
     </style>
 </head>
@@ -299,14 +304,9 @@ You should have received a copy of the GNU General Public License along with Eas
                 <input type="number" id="ett_max_retries" name="ett_max_retries" min="1" max="30" value="3">
 
                 <hr>
-                <h3>🌐 MCP 服务器</h3>
-                <div class="mcp-servers-buttons">
-                    <button type="button" id="scan-mcp-btn" class="btn-secondary">🔍 扫描局域网</button>
-                    <button type="button" id="save-mcp-btn" class="btn-primary" style="display:none;">💾 保存选择</button>
-                </div>
-                <div id="mcp-servers-list">
-                    <!-- 动态显示扫描结果 -->
-                </div>
+                <h3>🌐 MCP 服务器 (stdio)</h3>
+                <div id="mcp-servers-list"></div>
+                <button type="button" id="add-mcp-server" class="btn-secondary">➕ 添加服务器</button>
 
                 <button type="submit">保存配置</button>
             </form>
@@ -329,6 +329,15 @@ You should have received a copy of the GNU General Public License along with Eas
         // ---------- 停止按钮相关 ----------
         let currentAbortController = null;   // 当前请求的 AbortController
         let isGenerating = false;            // 是否正在生成中
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
 
         function setSendButtonToStop() {
             sendBtn.textContent = '停止';
@@ -410,106 +419,63 @@ You should have received a copy of the GNU General Public License along with Eas
         });
 
         // ---------- MCP 服务器管理 ----------
-        let discoveredServers = [];       // 存储扫描到的服务器 { url, name, tools_count, tools }
-        let selectedUrls = new Set();     // 存储用户勾选的 URL
+        let mcpServers = [];   // 存储当前 MCP 服务器列表
 
-        async function scanMCPServers() {
-            const scanBtn = document.getElementById('scan-mcp-btn');
-            const saveBtn = document.getElementById('save-mcp-btn');
-            const listDiv = document.getElementById('mcp-servers-list');
-            scanBtn.disabled = true;
-            scanBtn.textContent = '扫描中...';
-            listDiv.innerHTML = '<div>正在扫描局域网，请稍候...</div>';
-            try {
-                const resp = await fetch('/mcp/scan');
-                const servers = await resp.json();
-                if (servers.error) {
-                    listDiv.innerHTML = `<div style="color:red;">扫描失败: ${servers.error}</div>`;
-                    return;
-                }
-                discoveredServers = servers;
-                renderMCPServers(servers);
-                saveBtn.style.display = 'inline-block';
-            } catch (err) {
-                listDiv.innerHTML = `<div style="color:red;">扫描失败: ${err.message}</div>`;
-            } finally {
-                scanBtn.disabled = false;
-                scanBtn.textContent = '🔍 扫描局域网';
-            }
-        }
-
-        function renderMCPServers(servers) {
+        function renderMCPServers() {
             const container = document.getElementById('mcp-servers-list');
-            if (!servers.length) {
-                container.innerHTML = '<div>未发现 MCP 服务器。</div>';
+            if (!container) return;
+            container.innerHTML = '';
+            if (mcpServers.length === 0) {
+                container.innerHTML = '<div>暂无 MCP 服务器配置。</div>';
                 return;
             }
-            container.innerHTML = '';
-            servers.forEach(server => {
-                const url = server.url;
-                const name = server.name || url;
-                const tools = server.tools || [];
-                const toolsStr = tools.join(', ');
+            mcpServers.forEach((server, index) => {
                 const div = document.createElement('div');
                 div.className = 'mcp-server-item';
                 div.innerHTML = `
-                    <input type="checkbox" value="${escapeHtml(url)}" id="mcp_${escapeHtml(url)}" ${selectedUrls.has(url) ? 'checked' : ''}>
-                    <label for="mcp_${escapeHtml(url)}">
-                        <strong>${escapeHtml(name)}</strong> (${server.tools_count} 个工具)
-                        ${toolsStr ? `<span style="color:#666;"> 例如：${escapeHtml(toolsStr)}</span>` : ''}
-                    </label>
+                    <input type="text" placeholder="名称" value="${escapeHtml(server.name || '')}" data-field="name" data-index="${index}">
+                    <input type="text" placeholder="命令 (如 uvx)" value="${escapeHtml(server.command || '')}" data-field="command" data-index="${index}">
+                    <input type="text" placeholder="参数 (空格分隔)" value="${escapeHtml((server.args || []).join(' '))}" data-field="args" data-index="${index}">
+                    <button type="button" data-index="${index}" class="remove-mcp">删除</button>
                 `;
-                const cb = div.querySelector('input');
-                cb.addEventListener('change', (e) => {
-                    if (e.target.checked) {
-                        selectedUrls.add(url);
-                    } else {
-                        selectedUrls.delete(url);
-                    }
-                });
                 container.appendChild(div);
             });
-        }
 
-        function escapeHtml(str) {
-            return str.replace(/[&<>]/g, function(m) {
-                if (m === '&') return '&amp;';
-                if (m === '<') return '&lt;';
-                if (m === '>') return '&gt;';
-                return m;
+            // 绑定输入变化事件
+            document.querySelectorAll('.mcp-server-item input').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.dataset.index);
+                    const field = e.target.dataset.field;
+                    if (field === 'args') {
+                        const argsStr = e.target.value.trim();
+                        mcpServers[idx].args = argsStr ? argsStr.split(/\s+/) : [];
+                    } else {
+                        mcpServers[idx][field] = e.target.value;
+                    }
+                });
+            });
+            // 绑定删除按钮
+            document.querySelectorAll('.remove-mcp').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const idx = parseInt(btn.dataset.index);
+                    mcpServers.splice(idx, 1);
+                    renderMCPServers();
+                });
             });
         }
 
-        async function saveMCPServers() {
-            const enabledUrls = Array.from(selectedUrls);
-            try {
-                // 获取当前完整配置
-                const resp = await fetch('/config');
-                const config = await resp.json();
-                const newConfig = {
-                    ...config,
-                    mcp_servers: enabledUrls
-                };
-                const saveResp = await fetch('/config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(newConfig)
-                });
-                const result = await saveResp.json();
-                if (result.status === 'success') {
-                    alert('MCP 服务器配置已保存，下次启动将生效。');
-                } else {
-                    alert('保存失败: ' + result.error);
-                }
-            } catch (err) {
-                alert('保存失败: ' + err.message);
-            }
+        function addMCPServer() {
+            mcpServers.push({
+                name: "新服务器",
+                command: "uvx",
+                args: ["windows-mcp"]
+            });
+            renderMCPServers();
         }
 
-        document.getElementById('scan-mcp-btn')?.addEventListener('click', scanMCPServers);
-        document.getElementById('save-mcp-btn')?.addEventListener('click', saveMCPServers);
-        // ---------- MCP 管理结束 ----------
+        document.getElementById('add-mcp-server')?.addEventListener('click', addMCPServer);
 
+        // ---------- 加载与保存配置 ----------
         async function loadConfig() {
             try {
                 const resp = await fetch('/config');
@@ -536,14 +502,9 @@ You should have received a copy of the GNU General Public License along with Eas
                     document.getElementById('ett_max_iterations').value = ett.max_iterations ?? 100;
                     document.getElementById('ett_max_retries').value = ett.max_retries ?? 3;
 
-                    // 加载已启用的 MCP 服务器
-                    const enabled = config.mcp_servers || [];
-                    selectedUrls.clear();
-                    enabled.forEach(url => selectedUrls.add(url));
-                    // 如果已经有发现过的服务器，重新渲染（但扫描列表可能还未加载）
-                    if (discoveredServers.length) {
-                        renderMCPServers(discoveredServers);
-                    }
+                    // MCP 服务器列表
+                    mcpServers = config.mcp_servers || [];
+                    renderMCPServers();
 
                     configStatus.innerText = '';
                 }
@@ -554,6 +515,7 @@ You should have received a copy of the GNU General Public License along with Eas
 
         configForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            // 构建新配置
             const newConfig = {
                 api_key: document.getElementById('api_key').value,
                 base_url: document.getElementById('base_url').value,
@@ -574,15 +536,23 @@ You should have received a copy of the GNU General Public License along with Eas
                         max_retries: parseInt(document.getElementById('ett_max_retries').value, 10)
                     }
                 },
-                mcp_servers: Array.from(selectedUrls)
+                mcp_servers: mcpServers
             };
             try {
-                const resp = await fetch('/config', {
+                // 获取当前完整配置（保留其他未编辑的字段）
+                const currentResp = await fetch('/config');
+                const currentConfig = await currentResp.json();
+                const mergedConfig = {
+                    ...currentConfig,
+                    ...newConfig,
+                    tools: { ...currentConfig.tools, ...newConfig.tools }
+                };
+                const saveResp = await fetch('/config', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(newConfig)
+                    body: JSON.stringify(mergedConfig)
                 });
-                const result = await resp.json();
+                const result = await saveResp.json();
                 if (result.status === 'success') {
                     configStatus.innerText = '配置已保存，已生效！';
                 } else {

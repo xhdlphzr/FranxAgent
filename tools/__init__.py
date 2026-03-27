@@ -17,55 +17,27 @@ from pathlib import Path
 # 获取工具目录的绝对路径
 TOOLS_DIR = Path(__file__).parent
 
-# 初始化列表：存储所有工具的元数据
-tools_metadata = []
-# 初始化字典：存储所有工具函数的映射
-tool_functions = {}
-# 初始化列表：存储所有工具的README内容
+# 存储所有内置工具的内部函数映射（工具名 -> execute 函数）
+_internal_tools = {}
+# 存储所有内置工具的 README 内容（用于系统提示）
 readmes = []
 
-# 遍历工具目录中的所有子目录
+# 遍历所有子目录
 for item in TOOLS_DIR.iterdir():
-    # 跳过非目录项和以'__'开头的特殊目录
     if not item.is_dir() or item.name.startswith('__'):
         continue
-
-    # 获取工具名称
+    
     tool_name = item.name
-
-    # 定义配置文件、工具文件和README文件的路径
-    config_path = item / 'config.json'
     tool_path = item / 'tool.py'
     readme_path = item / 'README.md'
 
-    # 检查工具模块是否包含所有必要文件
-    if not (config_path.exists() and tool_path.exists() and readme_path.exists):
-        print(f"⚠️ 工具 {tool_name} 缺少必要文件，跳过")
+    # 必要文件检查（不再需要 config.json）
+    if not (tool_path.exists() and readme_path.exists()):
+        print(f"⚠️ 工具 {tool_name} 缺少 tool.py 或 README.md，跳过")
         continue
 
+    # 动态导入 tool.py
     try:
-        # 读取配置文件
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-    except Exception as e:
-        print(f"⚠️ 工具 {tool_name} 的 config.json 解析失败：{e}，跳过")
-        continue
-
-    # 检查配置文件格式是否正确
-    if not isinstance(config, dict) or 'type' not in config or 'function' not in config:
-        print(f"⚠️ 工具 {tool_name} 的 config.json 格式不正确（缺少 type 或 function），跳过")
-        continue
-
-    # 获取工具函数信息
-    func_info = config['function']
-    if 'name' not in func_info:
-        print(f"⚠️ 工具 {tool_name} 的 config.json 中 function 缺少 name 字段，跳过")
-        continue
-
-    name = func_info['name']
-
-    try:
-        # 动态导入工具模块
         spec = importlib.util.spec_from_file_location(f"tools.{tool_name}", tool_path)
         module = importlib.util.module_from_spec(spec)
         sys.modules[f"tools.{tool_name}"] = module
@@ -74,29 +46,67 @@ for item in TOOLS_DIR.iterdir():
         print(f"⚠️ 工具 {tool_name} 的 tool.py 导入失败：{e}，跳过")
         continue
 
-    # 检查工具模块是否定义了execute函数
     if not hasattr(module, 'execute'):
         print(f"⚠️ 工具 {tool_name} 的 tool.py 未定义 execute 函数，跳过")
         continue
 
-    # 将工具元数据添加到列表
-    tools_metadata.append(config)
+    # 保存内部函数
+    _internal_tools[tool_name] = module.execute
 
-    # 将工具函数添加到字典（通过函数名映射到execute函数）
-    tool_functions[name] = module.execute
+    # 读取 README
+    try:
+        with open(readme_path, 'r', encoding='utf-8') as f:
+            readme_content = f.read().strip()
+            if readme_content:
+                readmes.append(readme_content)
+    except Exception as e:
+        print(f"⚠️ 工具 {tool_name} 的 README.md 读取失败：{e}")
 
-    # 读取并存储工具的README内容
-    if readme_path.exists():
-        try:
-            with open(readme_path, 'r', encoding='utf-8') as f:
-                readme_content = f.read().strip()
-                if readme_content:
-                    readmes.append(readme_content)
-        except Exception as e:
-            print(f"⚠️ 工具 {tool_name} 的 README.md 读取失败：{e}")
-
-# 将所有README内容合并为一个字符串
+# 合并所有内置工具的 README
 readmes_combined = "\n\n".join(readmes)
 
-# 导出所有公共接口
+# 定义统一的 tools 函数
+def tools(tool_name: str, arguments: dict = None) -> str:
+    """
+    统一调用接口，根据工具名分发到具体的内部工具函数。
+    """
+    if tool_name not in _internal_tools:
+        return f"错误：未知工具 {tool_name}"
+
+    if tool_name not in _internal_tools:
+        return f"错误：未知工具 {tool_name}"
+    try:
+        return _internal_tools[tool_name](**(arguments or {}))
+    except Exception as e:
+        return f"调用失败: {e}"
+
+# 导出工具函数字典（只有一个 tools 函数）
+tool_functions = {"tools": tools}
+
+# 构造统一工具的元数据（直接构造，不依赖外部 JSON）
+tools_metadata = [
+    {
+        "type": "function",
+        "function": {
+            "name": "tools",
+            "description": "调用任何可用工具。参数：tool_name (工具名), arguments (JSON 对象)。所有内置工具都通过此工具调用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tool_name": {
+                        "type": "string",
+                        "description": "工具名称，如 read、write、command、search、similarity、add_task、del_task、ett、beijing_subway 等"
+                    },
+                    "arguments": {
+                        "type": "object",
+                        "description": "工具参数"
+                    }
+                },
+                "required": ["tool_name"]
+            }
+        }
+    }
+]
+
+print("内置工具列表:", list(_internal_tools.keys()))
 __all__ = ['tools_metadata', 'tool_functions', 'readmes_combined']
