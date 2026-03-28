@@ -241,6 +241,67 @@ You should have received a copy of the GNU General Public License along with Fra
             cursor: pointer;
             margin-right: 10px;
         }
+
+        /* 定时任务样式 */
+        .task-message {
+            background-color: #f0f7ff;
+            border-left: 3px solid #1e90ff;
+        }
+        .task-status {
+            margin-top: 6px;
+            font-size: 0.85em;
+            color: #666;
+        }
+        .task-result {
+            margin-top: 8px;
+            padding: 6px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .stop-task-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-top: 8px;
+            font-size: 0.8em;
+        }
+        .task-item {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .task-item .task-info {
+            flex: 1;
+        }
+        .task-item .task-time {
+            font-weight: bold;
+            font-family: monospace;
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .task-item .task-content {
+            margin-left: 12px;
+            color: #333;
+        }
+        .task-item button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -304,6 +365,11 @@ You should have received a copy of the GNU General Public License along with Fra
                 <input type="number" id="ett_max_retries" name="ett_max_retries" min="1" max="30" value="3">
 
                 <hr>
+                <h3>⏰ 定时任务</h3>
+                <div id="tasks-list"></div>
+                <button type="button" id="add-task" class="btn-secondary">➕ 添加任务</button>
+                <hr>
+
                 <h3>🌐 MCP 服务器 (stdio)</h3>
                 <div id="mcp-servers-list"></div>
                 <button type="button" id="add-mcp-server" class="btn-secondary">➕ 添加服务器</button>
@@ -384,9 +450,9 @@ You should have received a copy of the GNU General Public License along with Fra
             }
         }
 
-        function addMessage(role, content, temporary = false) {
+        function addMessage(role, content, temporary = false, extraClass = '') {
             const msgDiv = document.createElement('div');
-            msgDiv.className = `message ${role}`;
+            msgDiv.className = `message ${role} ${extraClass}`;
             if (temporary) msgDiv.classList.add('temp');
             msgDiv.textContent = content;
             chatMessages.appendChild(msgDiv);
@@ -412,6 +478,7 @@ You should have received a copy of the GNU General Public License along with Fra
                     chatPage.classList.remove('active');
                     configPage.classList.add('active');
                     loadConfig();
+                    loadTasks();  // 每次切换到配置页时刷新任务列表
                 }
                 navBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
@@ -474,6 +541,115 @@ You should have received a copy of the GNU General Public License along with Fra
         }
 
         document.getElementById('add-mcp-server')?.addEventListener('click', addMCPServer);
+
+        // 定时任务管理
+        let tasks = {};  // 存储当前任务 { "HH:MM": "命令内容" }
+
+        function renderTasks() {
+            const container = document.getElementById('tasks-list');
+            if (!container) return;
+            container.innerHTML = '';
+            const entries = Object.entries(tasks);
+            if (entries.length === 0) {
+                container.innerHTML = '<div>暂无定时任务。</div>';
+                return;
+            }
+            for (const [time, content] of entries) {
+                const div = document.createElement('div');
+                div.className = 'task-item';
+                div.innerHTML = `
+                    <div class="task-info">
+                        <span class="task-time">${escapeHtml(time)}</span>
+                        <span class="task-content">${escapeHtml(content)}</span>
+                    </div>
+                    <button data-time="${escapeHtml(time)}" class="delete-task">删除</button>
+                `;
+                container.appendChild(div);
+            }
+            // 绑定删除按钮事件
+            document.querySelectorAll('.delete-task').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const time = btn.dataset.time;
+                    if (confirm(`确定要删除任务 "${time}" 吗？`)) {
+                        await deleteTask(time);
+                        await loadTasks();
+                    }
+                });
+            });
+        }
+
+        async function loadTasks() {
+            try {
+                const resp = await fetch('/tasks');
+                const data = await resp.json();
+                if (data.error) {
+                    console.error('加载任务失败:', data.error);
+                    tasks = {};
+                } else {
+                    tasks = data;
+                }
+                renderTasks();
+            } catch (err) {
+                console.error('加载任务失败:', err);
+                tasks = {};
+                renderTasks();
+            }
+        }
+
+        async function addTask(time, content) {
+            try {
+                const resp = await fetch('/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'add', time, content })
+                });
+                const result = await resp.json();
+                if (result.status === 'success') {
+                    return true;
+                } else {
+                    alert('添加失败: ' + (result.error || '未知错误'));
+                    return false;
+                }
+            } catch (err) {
+                alert('网络错误: ' + err.message);
+                return false;
+            }
+        }
+
+        async function deleteTask(time) {
+            try {
+                const resp = await fetch('/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'delete', time })
+                });
+                const result = await resp.json();
+                if (result.status === 'success') {
+                    return true;
+                } else {
+                    alert('删除失败: ' + (result.error || '未知错误'));
+                    return false;
+                }
+            } catch (err) {
+                alert('网络错误: ' + err.message);
+                return false;
+            }
+        }
+
+        document.getElementById('add-task')?.addEventListener('click', async () => {
+            const time = prompt('请输入执行时间（格式 HH:MM，例如 14:30）：');
+            if (!time) return;
+            if (!/^\d{2}:\d{2}$/.test(time)) {
+                alert('时间格式错误，请使用 HH:MM 格式，例如 14:30');
+                return;
+            }
+            const content = prompt('请输入要执行的命令或任务内容：');
+            if (!content) return;
+            const success = await addTask(time, content);
+            if (success) {
+                await loadTasks();
+            }
+        });
 
         // ---------- 加载与保存配置 ----------
         async function loadConfig() {
@@ -656,6 +832,96 @@ You should have received a copy of the GNU General Public License along with Fra
             }
         });
 
+        // SSE 接收定时任务实时消息
+        const taskMessages = {};  // 存储每个任务的消息元素，key = task_id
+
+        const eventSource = new EventSource('/events');
+        eventSource.addEventListener('task_start', (e) => {
+            const data = JSON.parse(e.data);
+            const { task_id, content, message } = data;
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message assistant task-message';
+            msgDiv.id = `task-${task_id}`;
+            msgDiv.innerHTML = `
+                <div>${escapeHtml(message)}</div>
+                <div class="task-status">执行中...</div>
+                <button class="stop-task-btn" data-task-id="${task_id}">停止</button>
+            `;
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            taskMessages[task_id] = msgDiv;
+
+            // 绑定停止按钮
+            const stopBtn = msgDiv.querySelector('.stop-task-btn');
+            if (stopBtn) {
+                stopBtn.onclick = () => stopTask(task_id);
+            }
+        });
+
+        eventSource.addEventListener('task_chunk', (e) => {
+            const data = JSON.parse(e.data);
+            const { task_id, chunk } = data;
+            const msgDiv = taskMessages[task_id];
+            if (msgDiv) {
+                let resultDiv = msgDiv.querySelector('.task-result');
+                if (!resultDiv) {
+                    resultDiv = document.createElement('div');
+                    resultDiv.className = 'task-result';
+                    msgDiv.appendChild(resultDiv);
+                }
+                resultDiv.textContent += chunk;
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        });
+
+        eventSource.addEventListener('task_done', (e) => {
+            const data = JSON.parse(e.data);
+            const { task_id, result } = data;
+            const msgDiv = taskMessages[task_id];
+            if (msgDiv) {
+                msgDiv.innerHTML = `
+                    <div>✅ 定时任务完成</div>
+                    <div class="task-result">${escapeHtml(result || '（无返回内容）')}</div>
+                `;
+                delete taskMessages[task_id];
+            }
+        });
+
+        eventSource.addEventListener('task_error', (e) => {
+            const data = JSON.parse(e.data);
+            const { task_id, error } = data;
+            const msgDiv = taskMessages[task_id];
+            if (msgDiv) {
+                msgDiv.innerHTML = `
+                    <div>❌ 定时任务失败</div>
+                    <div class="task-result">错误: ${escapeHtml(error)}</div>
+                `;
+                delete taskMessages[task_id];
+            }
+        });
+
+        eventSource.addEventListener('task_cancel', (e) => {
+            const data = JSON.parse(e.data);
+            const { task_id } = data;
+            const msgDiv = taskMessages[task_id];
+            if (msgDiv) {
+                msgDiv.innerHTML = `<div>⏸️ 定时任务已取消</div>`;
+                delete taskMessages[task_id];
+            }
+        });
+
+        async function stopTask(taskId) {
+            try {
+                const resp = await fetch(`/cancel_task/${taskId}`, { method: 'POST' });
+                const result = await resp.json();
+                if (result.status !== 'cancelling') {
+                    alert('停止失败: ' + (result.error || '未知错误'));
+                }
+            } catch (err) {
+                alert('停止失败: ' + err.message);
+            }
+        }
+
         async function checkSessionAndClear() {
             try {
                 const resp = await fetch('/session');
@@ -675,6 +941,7 @@ You should have received a copy of the GNU General Public License along with Fra
         checkSessionAndClear().then(() => {
             loadMessagesFromLocalStorage();
             loadConfig();
+            loadTasks();  // 初始加载任务列表
         });
     </script>
 </body>

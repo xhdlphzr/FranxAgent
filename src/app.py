@@ -17,6 +17,7 @@ import time
 import atexit
 import sys
 import io
+import uuid
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from agent import FranxAI
@@ -52,6 +53,38 @@ def save_config(config):
 chat_agent = None
 chat_agent_lock = threading.Lock()  # 用于线程安全的锁
 tasks_agent = None
+
+# 定时任务 SSE 广播器
+class EventBroadcaster:
+    def __init__(self):
+        self.connections = []
+        self.lock = threading.Lock()
+
+    def subscribe(self):
+        q = queue.Queue()
+        with self.lock:
+            self.connections.append(q)
+        return q
+
+    def unsubscribe(self, q):
+        with self.lock:
+            if q in self.connections:
+                self.connections.remove(q)
+
+    def broadcast(self, event_type, data):
+        message = f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+        with self.lock:
+            for q in self.connections[:]:
+                try:
+                    q.put_nowait(message)
+                except queue.Full:
+                    pass
+
+broadcaster = EventBroadcaster()
+
+# 存储正在执行的任务取消事件
+active_tasks = {}
+active_tasks_lock = threading.Lock()
 
 def init_agents():
     global chat_agent, tasks_agent, last_config_mtime
@@ -122,10 +155,50 @@ def save_memory_on_exit():
 # 注册退出时保存记忆的回调函数
 atexit.register(save_memory_on_exit)
 
+# 定时任务执行函数（支持取消和流式推送）
+def execute_task(task_id, content, cancel_event):
+    """执行单个定时任务，并将过程实时推送到 SSE"""
+    # 发送开始事件
+    broadcaster.broadcast('task_start', {
+        'task_id': task_id,
+        'content': content,
+        'message': f"⏰ 执行定时任务: {content}"
+    })
+
+    try:
+        result_parts = []
+        # 迭代生成器，实时推送每个 chunk
+        for chunk in tasks_agent.input(content):
+            if cancel_event.is_set():
+                broadcaster.broadcast('task_cancel', {'task_id': task_id})
+                return
+            result_parts.append(chunk)
+            broadcaster.broadcast('task_chunk', {
+                'task_id': task_id,
+                'chunk': chunk
+            })
+        full_result = ''.join(result_parts)
+        # 发送完成事件
+        broadcaster.broadcast('task_done', {
+            'task_id': task_id,
+            'result': full_result
+        })
+    except Exception as e:
+        broadcaster.broadcast('task_error', {
+            'task_id': task_id,
+            'error': str(e)
+        })
+    finally:
+        with active_tasks_lock:
+            if task_id in active_tasks:
+                del active_tasks[task_id]
+# ---------- 新增结束 ----------
+
 def run_tasks():
     """
     定时任务执行器
     每隔10秒检查一次tasks.json，执行当前时间对应的任务
+    文件格式：{"HH:MM": "命令内容"}
     """
     # 初始化执行记录集合和上次执行日期
     if not hasattr(run_tasks, "_executed"):
@@ -152,16 +225,19 @@ def run_tasks():
                     run_tasks._executed.clear()
                     run_tasks._last_date = today
 
-                # 遍历所有任务，执行当前时间的任务
-                for task_id, (content, time_str) in tasks.items():
-                    if time_str == current_time and task_id not in run_tasks._executed:
-                        print(f"执行任务 {task_id}: {content}")
-                        try:
-                            # 使用任务智能体执行任务
-                            tasks_agent.input(content)
-                        except Exception as e:
-                            print(f"任务执行失败: {e}")
-                        run_tasks._executed.add(task_id)
+                # 遍历所有任务（键为时间，值为命令）
+                for time_str, content in tasks.items():
+                    if time_str == current_time and time_str not in run_tasks._executed:
+                        # 生成唯一任务ID
+                        task_id = str(uuid.uuid4())
+                        cancel_event = threading.Event()
+                        with active_tasks_lock:
+                            active_tasks[task_id] = cancel_event
+                        # 启动执行线程
+                        thread = threading.Thread(target=execute_task, args=(task_id, content, cancel_event))
+                        thread.daemon = True
+                        thread.start()
+                        run_tasks._executed.add(time_str)
         # 睡眠10秒后再次检查
         time.sleep(10)
 
@@ -290,6 +366,105 @@ def update_config():
         return jsonify({'status': 'success'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# 定时任务管理接口
+@app.route('/tasks', methods=['GET', 'POST'])
+def tasks_api():
+    """
+    定时任务管理接口
+    - GET: 返回所有任务
+    - POST: 支持添加或删除任务，通过 action 参数区分
+        action=add: 添加任务，需提供 time 和 content
+        action=delete: 删除任务，需提供 time
+    """
+    if request.method == 'GET':
+        try:
+            if os.path.exists("./tasks.json"):
+                with open("./tasks.json", 'r', encoding='utf-8') as f:
+                    tasks = json.load(f)
+            else:
+                tasks = {}
+            return jsonify(tasks)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        data = request.get_json()
+        action = data.get('action')
+        if action == 'add':
+            time_str = data.get('time')
+            content = data.get('content')
+            if not time_str or not content:
+                return jsonify({'error': '缺少 time 或 content 字段'}), 400
+            try:
+                if os.path.exists("./tasks.json"):
+                    with open("./tasks.json", 'r', encoding='utf-8') as f:
+                        tasks = json.load(f)
+                else:
+                    tasks = {}
+                tasks[time_str] = content
+                with open("./tasks.json", 'w', encoding='utf-8') as f:
+                    json.dump(tasks, f, indent=2, ensure_ascii=False)
+                return jsonify({'status': 'success'})
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+
+        elif action == 'delete':
+            time_str = data.get('time')
+            if not time_str:
+                return jsonify({'error': '缺少 time 字段'}), 400
+            try:
+                if not os.path.exists("./tasks.json"):
+                    return jsonify({'error': '任务文件不存在'}), 404
+                with open("./tasks.json", 'r', encoding='utf-8') as f:
+                    tasks = json.load(f)
+                if time_str in tasks:
+                    del tasks[time_str]
+                    with open("./tasks.json", 'w', encoding='utf-8') as f:
+                        json.dump(tasks, f, indent=2, ensure_ascii=False)
+                    return jsonify({'status': 'success'})
+                else:
+                    return jsonify({'error': '任务不存在'}), 404
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        else:
+            return jsonify({'error': '未知的 action'}), 400
+
+# SSE 事件流
+@app.route('/events')
+def events():
+    """Server-Sent Events 端点，用于推送定时任务实时状态"""
+    def generate():
+        q = broadcaster.subscribe()
+        try:
+            while True:
+                try:
+                    msg = q.get(timeout=30)
+                    yield msg
+                except queue.Empty:
+                    yield ": heartbeat\n\n"
+        finally:
+            broadcaster.unsubscribe(q)
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+        }
+    )
+
+# 取消任务接口
+@app.route('/cancel_task/<task_id>', methods=['POST'])
+def cancel_task(task_id):
+    """取消正在执行的任务"""
+    with active_tasks_lock:
+        if task_id in active_tasks:
+            active_tasks[task_id].set()
+            return jsonify({'status': 'cancelling'})
+        else:
+            return jsonify({'error': '任务不存在或已结束'}), 404
 
 if __name__ == '__main__':
     # 初始化智能体
