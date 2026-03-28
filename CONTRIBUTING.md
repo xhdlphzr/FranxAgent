@@ -84,7 +84,7 @@ git checkout -b add-技能名
 例如 `add-research-workflow`。
 
 ### 4. 添加技能文件
-在 `skills/` 目录下添加一个 `.md` 文件（文件名建议使用英文，如 `research_workflow.md`）。  
+在 `skills/` 目录下添加一个 `.md` 文件（在内容的标题中记得标注 `（技能）` ）。  
 该文件应包含以下内容：
 
 - **标题**（使用一级标题，例如 `# 科研工作流程`）
