@@ -139,7 +139,7 @@ _load_mcp_servers()
 
 # ---------- 4. 向量库构建（自动） ----------
 VECTOR_DB_PATH = SKILLS_ROOT / "knowledge.db"
-MODEL_NAME = 'all-MiniLM-L6-v2'
+MODEL_NAME = 'all-MiniLM-L12-v2'
 
 def _init_vector_db():
     """创建数据库表（如果不存在）"""
