@@ -12,21 +12,15 @@ Agent模块 - AI智能体核心实现
 import json
 import sys
 import atexit
-import time
-import threading
 from pathlib import Path
 from openai import OpenAI
-from mcps import MCPStdioClient
 
-# 导入工具系统
+# 将项目根目录加入路径，以便导入 skills 模块
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from tools import tools_metadata, tool_functions, readmes_combined
+from skills import tool_functions, tools_metadata, search, cleanup_mcp_clients
 
-# 导入技能系统
-from skills import skills_readme
-
-# 用户指南：说明如何正确调用工具
-user_guide = r"""
+# 用户指南：说明如何正确调用工具（固定内容，不依赖知识库）
+USER_GUIDE = r"""
 ## 📌 工具调用方式
 
 **重要：你只能使用一个名为 `tools` 的工具。** 所有功能都通过这个工具调用，具体调用哪个内置工具由 `tool_name` 参数指定。
@@ -74,11 +68,8 @@ user_guide = r"""
 现在，你可以开始帮助用户了。记住：**安全第一，对于删除操作永远用移动替代直接删除。**
 """
 
-# 将工具的README和用户指南合并
-guide = f"{readmes_combined}\n\n{skills_readme}\n\n---\n\n{user_guide}"
-
 # 摘要指南：说明如何总结对话内容
-summarize_guide = r"""
+SUMMARIZE_GUIDE = r"""
 请将以下对话内容总结为一个简洁的段落（这个段落将作为长期记忆传递给未来的AI，让它继承关键信息）。请用第三人称叙述，重点保留：
 - 用户的核心需求或问题
 - 已确认的重要事实（如文件路径、偏好设置、任务状态）
@@ -98,167 +89,71 @@ class FranxAI:
     AI智能体类
     """
 
-    def __init__(self, key: str, url: str, model: str, settings="你是一个有用的AI助手。", max_iterations=100, temperature=0.8, thinking=False, threshold=20):
+    def __init__(self, key: str, url: str, model: str,
+                 settings="你是一个有用的AI助手。",
+                 max_iterations=100,
+                 temperature=0.8,
+                 thinking=False,
+                 threshold=20,
+                 knowledge_k=1):
+        """
+        初始化智能体
+        """
         self.client = OpenAI(api_key=key, base_url=url)
         self.model = model
         self.user_settings = settings
-        self.user_guide = user_guide
-
-        self.builtin_tools = tool_functions["tools"]
-
-        # 存储 MCP 工具的函数映射（键为 "服务器名/工具名"）
-        self.mcp_tools = {}
-        # 存储 MCP 工具的描述（用于系统提示）
-        self.mcp_descriptions = []
-
-        # 定义统一的 tools 函数，先尝试内置，再尝试 MCP
-        def wrapped_tools(tool_name: str, arguments: dict = None) -> str:
-            tool_name = tool_name.strip()  # 只去除首尾空格，保留原始大小写
-            if '/' in tool_name:
-                # 精确匹配
-                if tool_name in self.mcp_tools:
-                    try:
-                        return self.mcp_tools[tool_name](**(arguments or {}))
-                    except Exception as e:
-                        return f"调用 MCP 工具失败: {e}"
-                # 大小写不敏感匹配
-                for key in self.mcp_tools:
-                    if key.lower() == tool_name.lower():
-                        try:
-                            return self.mcp_tools[key](**(arguments or {}))
-                        except Exception as e:
-                            return f"调用 MCP 工具失败: {e}"
-                return f"错误：未知 MCP 工具 {tool_name}。可用的 MCP 工具: {list(self.mcp_tools.keys())}"
-            
-            # 调用内置工具
-            try:
-                return self.builtin_tools(tool_name, arguments)
-            except Exception as e:
-                return f"调用内置工具失败: {e}"
-
-        self.tool_functions = {"tools": wrapped_tools}
-        self.tools_metadata = tools_metadata   # 只有一个工具定义
-        self.tools = self.tools_metadata
-
-        # 构建系统提示（基础部分）
-        base_prompt = f"{readmes_combined}\n\n---\n\n{self.user_guide}\n\n---\n\n{self.user_settings}"
-        self.messages = [{"role": "system", "content": base_prompt}]
-
-        # 其他属性
         self.max_iterations = max_iterations
         self.temperature = temperature
         self.thinking = thinking
         self.threshold = threshold
+        self.knowledge_k = knowledge_k   # 检索知识数量
 
-        # MCP 客户端管理
-        self._mcp_lock = threading.Lock()
-        self.mcp_clients = []
-        self._mcp_clients_map = {}
+        # 统一工具函数（已包含内置 + MCP）
+        self.tool_functions = tool_functions
+        self.tools_metadata = tools_metadata
+        self.tools = self.tools_metadata
 
-        # 加载 MCP 服务器
-        self._load_mcp_servers()
+        # 基础系统提示（不含动态知识）
+        base_prompt = f"{USER_GUIDE}\n\n---\n\n{self.user_settings}"
+        self.base_messages = [{"role": "system", "content": base_prompt}]
 
-        # 更新系统提示（加入 MCP 描述和调用说明）
-        self._update_system_prompt()
+        # 实际消息历史（会复制 base_messages 并在每次对话前增强）
+        self.messages = self.base_messages.copy()
 
-        # 退出清理
-        atexit.register(self._cleanup_mcp_clients)
+        # 注册退出时清理 MCP 客户端
+        atexit.register(cleanup_mcp_clients)
 
-    def _load_mcp_servers(self):
-        """从配置文件加载 MCP 服务器并启动，注册工具函数和描述"""
-        config_path = Path(__file__).parent.parent / "config.json"
-        if not config_path.exists():
-            return
-        try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-        except Exception as e:
-            print(f"读取配置文件失败: {e}")
-            return
+    def _build_enhanced_system_prompt(self, user_input):
+        """
+        根据用户输入检索相关知识，并返回增强后的系统提示字符串
+        """
+        # 检索相关知识
+        relevant = search(user_input, k=self.knowledge_k)
+        if not relevant:
+            return self.base_messages[0]["content"]
 
-        servers = config.get("mcp_servers", [])
-        if not servers:
-            return
-
-        for server in servers:
-            name = server.get("name", "unknown")
-            command = server.get("command")
-            if not command:
-                print(f"跳过 {name}: 缺少 command")
-                continue
-            args = server.get("args", [])
-
-            try:
-                client = MCPStdioClient(command, args)
-                client.start()
-                time.sleep(0.5)
-                raw_tools = client.list_tools()
-                if not raw_tools:
-                    print(f"⚠️ {name} 未返回工具，跳过")
-                    client.close()
-                    continue
-
-                print(f"已连接 MCP 服务器 {name}，发现 {len(raw_tools)} 个工具")
-                self._mcp_clients_map[name] = client
-                with self._mcp_lock:
-                    for tool in raw_tools:
-                        tool_name = tool["name"]
-                        full_name = f"{name}/{tool_name}"   # 服务器名/工具名
-                        description = tool.get("description", "")
-                        # 生成自然语言描述
-                        desc = description
-                        params = tool.get("inputSchema", {}).get("properties", {})
-                        param_str = ", ".join([f"{k} ({v.get('type','any')})" for k, v in params.items()])
-                        if param_str:
-                            desc += f" 参数：{param_str}。"
-                        self.mcp_descriptions.append(f"- {full_name}：{desc}")
-
-                        # 创建包装函数
-                        def make_wrapper(mcp_client, t_name):
-                            def wrapper(**kwargs):
-                                try:
-                                    return mcp_client.call_tool(t_name, kwargs)
-                                except Exception as e:
-                                    return f"调用失败: {e}"
-                            return wrapper
-                        self.mcp_tools[full_name] = make_wrapper(client, tool_name)
-
-                self.mcp_clients.append(client)
-            except Exception as e:
-                print(f"启动 MCP 服务器 {name} 失败: {e}")
-                import traceback
-                traceback.print_exc()
-                continue
-
-    def _update_system_prompt(self):
-        """将 MCP 工具描述和调用说明追加到系统提示"""
-        current = self.messages[0]["content"]
-        if self.mcp_descriptions:
-            current += "\n\n## 外部 MCP 工具\n" + "\n".join(self.mcp_descriptions)
-        current += "\n\n## 调用方式\n所有工具都通过 `tools` 工具调用，格式为 `tools(tool_name=\"工具名\", arguments={...})`。内置工具使用原始名称（如 read），外部 MCP 工具使用 `服务器名/工具名`（如 windows-mcp/snapshot）。"
-        self.messages[0]["content"] = current
-
-    def _cleanup_mcp_clients(self):
-        for client in self.mcp_clients:
-            try:
-                client.close()
-            except:
-                pass
+        knowledge_text = "\n\n".join([item['text'] for item in relevant])
+        return self.base_messages[0]["content"] + f"\n\n## 相关内容\n{knowledge_text}"
 
     def input(self, msg: str):
         """
         处理用户消息，支持流式输出 AI 回复。
+        - 每次对话前动态检索知识并增强系统提示。
         - 当模型返回文本时，逐字 yield 内容。
         - 当模型需要调用工具时，同步执行工具，并将工具调用信息打印到 stdout（可被重定向）。
         - 循环处理直到无工具调用。
         """
         print("AI思考中...")
+
+        # 为本次对话构建增强后的消息列表
+        enhanced_system = self._build_enhanced_system_prompt(msg)
+        self.messages = [{"role": "system", "content": enhanced_system}] + self.base_messages[1:]
         self.messages.append({"role": "user", "content": msg})
 
         iteration = 0
         while iteration < self.max_iterations:
             # 调用模型（根据 thinking 配置）
-            if self.thinking == True:
+            if self.thinking:
                 stream = self.client.chat.completions.create(
                     model=self.model,
                     messages=self.messages,
@@ -323,7 +218,7 @@ class FranxAI:
             for tool_call in tool_calls_data.values():
                 func_name = tool_call["function"]["name"]
                 arguments = json.loads(tool_call["function"]["arguments"])
-                
+
                 # 如果模型直接调用了内置工具名（如 time、read），自动转换为 tools 调用
                 if func_name != "tools" and "/" not in func_name:
                     print(f"⚠️ 模型直接调用了 {func_name}，已自动转换为 tools 调用")
@@ -332,9 +227,10 @@ class FranxAI:
                     # 更新 tool_call 对象
                     tool_call["function"]["name"] = "tools"
                     tool_call["function"]["arguments"] = json.dumps(new_arguments, ensure_ascii=False)
-                    func_name = "tools"  # 后续使用新名称
-                    arguments = new_arguments   # 后续使用新参数
-                
+                    func_name = "tools"
+                    arguments = new_arguments
+
+                # 获取工具函数
                 func = self.tool_functions.get(func_name)
 
                 if func:
@@ -343,6 +239,7 @@ class FranxAI:
                 else:
                     result = f"错误：未知工具 {func_name}"
                     print(result)
+
                 # 将工具执行结果加入消息历史
                 self.messages.append({
                     "role": "tool",
@@ -361,7 +258,7 @@ class FranxAI:
         """
         print("AI概括中...")
         to_summarize = self.messages[1:idx]
-        to_summarize.append({"role": "user", "content": summarize_guide})
+        to_summarize.append({"role": "user", "content": SUMMARIZE_GUIDE})
         stream = self.client.chat.completions.create(
             model=self.model,
             messages=to_summarize,
@@ -372,7 +269,7 @@ class FranxAI:
             if chunk.choices[0].delta.content:
                 full_summary += chunk.choices[0].delta.content
                 yield chunk.choices[0].delta.content
-        # 更新消息列表
+        # 更新消息列表：保留系统提示，替换为摘要
         self.messages = [self.messages[0]] + [{"role": "system", "content": full_summary}] + self.messages[idx:]
 
     def memory(self):

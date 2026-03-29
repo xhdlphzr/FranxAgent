@@ -127,6 +127,28 @@ You should have received a copy of the GNU General Public License along with Fra
             opacity: 0.7;
             font-style: italic;
         }
+        /* 知识消息样式 */
+        .message.knowledge {
+            background-color: #f0f7ff;
+            border-left: 3px solid #1e90ff;
+            font-size: 0.9em;
+            color: #333;
+            max-width: 90%;
+            margin: 8px 0;
+        }
+        .knowledge-label {
+            font-weight: bold;
+            margin-bottom: 4px;
+            color: #1e90ff;
+        }
+        .knowledge-content {
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 0.85em;
+            background: #f8f9fa;
+            padding: 6px;
+            border-radius: 4px;
+        }
         /* 为渲染后的 Markdown 添加段落间距 */
         .message p {
             margin: 0.5em 0;
@@ -367,6 +389,8 @@ You should have received a copy of the GNU General Public License along with Fra
                 <input type="number" id="max_iterations" name="max_iterations" min="1" max="500" value="100">
                 <label>记忆压缩阈值</label>
                 <input type="number" id="threshold" name="threshold" min="1" max="100" value="20">
+                <label>知识检索数量</label>
+                <input type="number" id="knowledge_k" name="knowledge_k" step="1" min="1" max="10" value="1">
                 <label>系统设置</label>
                 <textarea id="settings" name="settings" rows="6"></textarea>
                 <hr>
@@ -712,6 +736,7 @@ You should have received a copy of the GNU General Public License along with Fra
                     document.getElementById('thinking').checked = config.thinking ?? false;
                     document.getElementById('max_iterations').value = config.max_iterations ?? 100;
                     document.getElementById('threshold').value = config.threshold ?? 20;
+                    document.getElementById('knowledge_k').value = config.knowledge_k ?? 1;
 
                     // ETT 工具配置
                     const ett = config.tools?.ett || {};
@@ -746,6 +771,7 @@ You should have received a copy of the GNU General Public License along with Fra
                 thinking: document.getElementById('thinking').checked,
                 max_iterations: parseInt(document.getElementById('max_iterations').value, 10),
                 threshold: parseInt(document.getElementById('threshold').value, 10),
+                knowledge_k: parseInt(document.getElementById('knowledge_k').value, 10),
                 tools: {
                     ett: {
                         api_key: document.getElementById('ett_api_key').value,
@@ -855,6 +881,16 @@ You should have received a copy of the GNU General Public License along with Fra
                                         });
                                     }
                                     saveMessagesToLocalStorage();
+                                } else if (data.type === 'knowledge') {
+                                    // 显示检索到的知识片段
+                                    const knowledgeDiv = document.createElement('div');
+                                    knowledgeDiv.className = 'message knowledge';
+                                    knowledgeDiv.innerHTML = `
+                                        <div class="knowledge-label">📚 相关知识</div>
+                                        <div class="knowledge-content">${escapeHtml(data.text)}</div>
+                                    `;
+                                    chatMessages.appendChild(knowledgeDiv);
+                                    chatMessages.scrollTop = chatMessages.scrollHeight;
                                 } else if (data.type === 'done') {
                                     break;
                                 } else if (data.type === 'error') {

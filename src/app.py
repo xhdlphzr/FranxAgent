@@ -19,9 +19,13 @@ import sys
 import io
 import uuid
 from datetime import datetime
+from pathlib import Path
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from agent import FranxAI
 import markdown
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from skills import search
 
 # 创建Flask应用实例
 app = Flask(__name__)
@@ -87,6 +91,10 @@ broadcaster = EventBroadcaster()
 active_tasks = {}
 active_tasks_lock = threading.Lock()
 
+session_histories = {}          # key: session_id, value: list of {"user": str, "ai": str}
+session_lock = threading.Lock()
+CONVERSATIONS_DIR = Path(__file__).parent.parent / "skills" / "memories"
+
 def init_agents():
     global chat_agent, tasks_agent, last_config_mtime
     config = load_config()
@@ -96,27 +104,21 @@ def init_agents():
     thinking = config.get("thinking", False)
     max_iterations = config.get("max_iterations", 100)
     threshold = config.get("threshold", 20)
-    
-    pre_memory = ""
-    try:
-        with open("memory.txt", "r", encoding="utf-8") as f:
-            pre_memory = f.read()
-    except:
-        pass
+    knowledge_k = config.get("knowledge_k", 1)
     
     settings = config.get("settings", "你是一个有用的AI助手。")
-    full_settings = f"{settings}\n\n{pre_memory}" if pre_memory else settings
     
     # 聊天智能体
     chat_agent = FranxAI(
         key=config["api_key"],
         url=config["base_url"],
         model=config["model"],
-        settings=full_settings,
+        settings=settings,
         max_iterations=max_iterations,
         temperature=temperature,
         thinking=thinking,
-        threshold=threshold
+        threshold=threshold,
+        knowledge_k=knowledge_k
     )
     
     # 任务智能体
@@ -124,37 +126,38 @@ def init_agents():
         key=config["api_key"],
         url=config["base_url"],
         model=config["model"],
-        settings=full_settings,
+        settings=settings,
         max_iterations=max_iterations,
         temperature=temperature,
         thinking=thinking,
-        threshold=threshold
+        threshold=threshold,
+        knowledge_k=knowledge_k
     )
 
-def save_memory_on_exit():
+def save_session_histories():
     """
-    退出时保存记忆到文件
-    使用atexit注册，程序退出时自动调用
+    退出时将所有未结束会话的每一轮问答单独写入 skills/memories/ 目录
     """
-    global chat_agent
-    if chat_agent and len(chat_agent.messages) > 1:
-        try:
-            # 生成摘要（不使用生成器，直接获取完整字符串）
-            summary = ''.join(chat_agent.summarize_msg(len(chat_agent.messages)))
-            if summary:
-                with open("memory.txt", "w", encoding="utf-8") as f:
-                    f.write(summary)
-                print("已保存记忆到 memory.txt")
-            else:
-                print("退出时无法生成摘要（摘要为空）")
-        except KeyboardInterrupt:
-            # 用户手动中断，不保存记忆
-            print("退出时未保存记忆（用户中断）")
-        except Exception as e:
-            print(f"保存记忆失败: {e}")
+    if not session_histories:
+        return
+    # 确保目录存在
+    CONVERSATIONS_DIR.mkdir(parents=True, exist_ok=True)
+    for sid, history in list(session_histories.items()):
+        if not history:
+            continue
+        # 会话级时间戳前缀
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        for idx, turn in enumerate(history):
+            # 文件名：时间戳_会话ID前缀_序号.md
+            filename = f"{timestamp}_{sid[:8]}_{idx+1:03d}.md"
+            filepath = CONVERSATIONS_DIR / filename
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(f"用户：{turn['user']}\n")
+                f.write(f"AI：{turn['ai']}\n")
+        print(f"已保存会话 {sid} 的 {len(history)} 轮问答到 {CONVERSATIONS_DIR}")
+    session_histories.clear()
 
-# 注册退出时保存记忆的回调函数
-atexit.register(save_memory_on_exit)
+atexit.register(save_session_histories)
 
 # 定时任务执行函数（支持取消和流式推送）
 def execute_task(task_id, content, cancel_event):
@@ -271,6 +274,7 @@ def get_session():
 def chat():
     data = request.get_json()
     user_message = data.get('message', '').strip()
+    session_id = data.get('session_id', STARTUP_ID)   # 前端可传递会话ID，默认使用 STARTUP_ID
     if not user_message:
         return jsonify({'error': '消息不能为空'}), 400
 
@@ -294,6 +298,19 @@ def chat():
 
         # 累积完整回复
         full_response = ""
+
+        # ---------- 新增：检索知识并发送到前端 ----------
+        try:
+            # 从 agent 获取 knowledge_k，如果不存在则默认 1
+            k = getattr(chat_agent, 'knowledge_k', 1)
+            relevant = search(user_message, k=k)
+            for item in relevant:
+                # 每条知识单独发送一个 knowledge 事件
+                yield f"data: {json.dumps({'type': 'knowledge', 'text': item['text']})}\n\n"
+        except Exception as e:
+            # 检索失败不影响主流程，仅打印日志
+            print(f"知识检索失败: {e}")
+        # ------------------------------------------------
 
         try:
             with chat_agent_lock:
@@ -330,6 +347,16 @@ def chat():
 
         # 发送流结束信号
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+        # 将本轮问答存入会话缓存（不立即写入文件，等待退出时统一写入）
+        if full_response:
+            with session_lock:
+                if session_id not in session_histories:
+                    session_histories[session_id] = []
+                session_histories[session_id].append({
+                    'user': user_message,
+                    'ai': full_response
+                })
 
     return Response(
         stream_with_context(generate()),
