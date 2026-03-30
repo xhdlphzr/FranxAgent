@@ -17,7 +17,7 @@ from openai import OpenAI
 
 # 将项目根目录加入路径，以便导入 skills 模块
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from skills import tool_functions, tools_metadata, search, cleanup_mcp_clients
+from knowledge import tool_functions, tools_metadata, search, cleanup_mcp_clients
 
 # 用户指南：说明如何正确调用工具（固定内容，不依赖知识库）
 USER_GUIDE = r"""

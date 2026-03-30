@@ -25,7 +25,7 @@ from agent import FranxAI
 import markdown
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from skills import search
+from knowledge import search
 
 # 创建Flask应用实例
 app = Flask(__name__)
