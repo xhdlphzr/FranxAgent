@@ -91,4 +91,7 @@
 - 删除 `memory.txt` 相关代码，不再生成或读取该文件。
 
 ## [v4.0.1](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.0.1)
-- 将 `skills/` 目录改名为 `knowledge/` 目录，并将原本的 `skills/` 迁移到 `knowledge/skills/`
+- 将 `skills/` 目录改名为 `knowledge/` 目录，并将原本的 `skills/` 迁移到 `knowledge/skills/`。
+
+## [v4.1.0](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.1.0)
+- 增加深度向量库功能：支持递归检索 + 自动去重，通过多次扩展查询获取更相关的知识片段。
