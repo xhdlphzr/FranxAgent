@@ -95,3 +95,10 @@
 
 ## [v4.1.0](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.1.0)
 - 增加深度向量库功能：支持递归检索 + 自动去重，通过多次扩展查询获取更相关的知识片段。
+
+## [v4.2.0](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.2.0)
+- 对话结束后立即将问答对向量化并存入知识库，无需重启即可生效。
+- 启动时仅处理新增、修改或删除的 `.md` 文件，大幅提升启动速度。
+- `SentenceTransformer` 模型只加载一次，后续检索复用，搜索速度提升 5~10 倍。
+- 对话记忆备份从 `skills/memories/` 移至 `knowledge/memories/`，并排除该目录的自动扫描，更改了v4.0.1的bug。
+- 删除 `session_histories` 及退出时批量写入逻辑，简化代码。
