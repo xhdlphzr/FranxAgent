@@ -4,7 +4,7 @@ Copyright (C) 2026 xhdlphzr
 See the file COPYING for copying conditions.
 -->
 
-# Research Process (Skill) | 科研流程 (技能)
+### Research Process (Skill) | 科研流程 (技能)
 
 **Core Principles**: Execute strictly by stages, no skipping or tampering. Prohibit academic fraud (data, charts, literature, derivations). Label "theoretical research" when no real experiments are conducted.
 
