@@ -6,7 +6,7 @@
     "thinking": false,
     "max_iterations": 100,
     "threshold": 20,
-    "knowledge_k": 3,
+    "knowledge_k": 5,
     "settings": "You are a helpful AI assistant. 你是一个有用的AI助手。",
     "tools": {
         "ett": {

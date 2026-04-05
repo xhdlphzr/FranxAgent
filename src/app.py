@@ -273,7 +273,6 @@ def chat():
             # Get knowledge_k from agent, default to 1 if not present | 从 agent 获取 knowledge_k，如果不存在则默认 1
             k = getattr(chat_agent, 'knowledge_k', 1)
             relevant = search(user_message, k=k)
-            print("search returned | 搜索返回：", relevant)
             for item in relevant:
                 # Send each knowledge item as a separate 'knowledge' event | 每条知识单独发送一个 knowledge 事件
                 yield f"data: {json.dumps({'type': 'knowledge', 'text': item})}\n\n"

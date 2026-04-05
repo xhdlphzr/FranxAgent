@@ -6,7 +6,7 @@ FranxAI is distributed in the hope that it will be useful, but WITHOUT ANY WARRA
 You should have received a copy of the GNU General Public License along with FranxAI.  If not, see <https://www.gnu.org/licenses/>.
 -->
 
-### ett — Multimodal Understanding (Everything to Text)
+### ett — Multimodal Understanding (Everything to Text) | 多模态理解（Everything to Text）
 
 - **Purpose**: Analyze images, videos or files with the Zhipu GLM-4.6V-Flash model and return text descriptions. Multiple resources can be analyzed at the same time (separated by commas), supporting web URLs and local file paths.
 
@@ -35,9 +35,6 @@ You should have received a copy of the GNU General Public License along with Fra
   }
 }
 ```
-
-### ett — 多模态理解（Everything to Text）
-
 - **用途**：使用智谱 GLM-4.6V-Flash 模型分析图片、视频或文件，返回文字描述。可同时分析多个资源（用逗号分隔），支持网络 URL 和本地文件路径。
 
 - **输入**：

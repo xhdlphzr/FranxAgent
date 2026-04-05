@@ -55,7 +55,7 @@ def a_star(start_id, end_id, time, graph, peak_penalty, off_peak_penalty):
     def heuristic(idx1, idx2):
         coord1 = (station_data[str(idx1)]['纬度'], station_data[str(idx1)]['经度'])
         coord2 = (station_data[str(idx2)]['纬度'], station_data[str(idx2)]['经度'])
-        dis = distance(coord1, idx2).m
+        dis = distance(coord1, coord2).m
         return round(dis / 40000 * 60)  # Fixed speed 40000 m/h | 固定速度 40000 m/h
 
     # Check if transfer is required | 是否换乘

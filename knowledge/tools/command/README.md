@@ -6,7 +6,7 @@ FranxAI is distributed in the hope that it will be useful, but WITHOUT ANY WARRA
 You should have received a copy of the GNU General Public License along with FranxAI.  If not, see <https://www.gnu.org/licenses/>.
 -->
 
-### `command` - Execute System Commands (With Administrator Privileges)
+### `command` - Execute System Commands (With Administrator Privileges) | 执行系统命令（具有管理员权限）
 - **Purpose**: Use this tool when users need to run programs, execute scripts, manage system services, install software, or perform other command-line tasks. This tool has **administrator privileges**, enabling most system-level operations.
 - **Input**:
 ```json
@@ -122,8 +122,6 @@ Below is the purpose, cross-platform differences, and permission requirements fo
 - Registry modification: `reg` (Win) - May corrupt the system; use cautiously.
 
 **Usage Principle**: Prioritize safe, compliant commands for user requests. Confirm permissions and risks with users if uncertain. Replace all deletion actions with file moves and record logs strictly.
-
-### `command` — 执行系统命令（具有管理员权限）
 - **用途**：当用户需要运行程序、执行脚本、管理系统服务、安装软件等需要命令行操作的任务时，使用此工具。此工具拥有**管理员权限**，因此可以执行大多数系统级操作。
 - **输入**：
   ```json

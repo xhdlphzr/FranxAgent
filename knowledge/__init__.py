@@ -15,6 +15,7 @@ import json
 import numpy as np
 import time
 import threading
+import re
 from pathlib import Path
 from sentence_transformers import SentenceTransformer
 
@@ -35,10 +36,14 @@ def _get_model():
         _model = SentenceTransformer(MODEL_NAME)
     return _model
 
+# Hybrid search is always enabled (weights: vector 0.7, fts 0.3) | 混合搜索始终启用
+_HYBRID_VECTOR_WEIGHT = 0.7
+_HYBRID_FTS_WEIGHT = 0.3
+
 # 1. Load Built-in Tools | 加载内置工具
 KNOWLEDGE_ROOT = Path(__file__).parent
 TOOLS_DIR = KNOWLEDGE_ROOT / 'tools'
-MEMORIES_DIR = KNOWLEDGE_ROOT / 'memories'   # Conversation memory backup directory (not included in automatic scanning) | 对话记忆备份目录（不参与自动扫描）
+MEMORIES_DIR = KNOWLEDGE_ROOT / 'memories'   # Conversation memory backup directory | 对话记忆备份目录
 
 # Create memories directory if it does not exist | 创建 memories 目录（如果不存在）
 MEMORIES_DIR.mkdir(parents=True, exist_ok=True)
@@ -70,15 +75,12 @@ for item in TOOLS_DIR.iterdir():
 
     _internal_tools[tool_name] = module.execute
 
-# 2. Collect All Markdown Files (Exclude memories directory) | 收集所有 Markdown 文件（排除 memories 目录）
+# 2. Collect All Markdown Files (including memories directory) | 收集所有 Markdown 文件（包括 memories 目录）
 def _get_file_state():
     """Get the status of all current .md files (path -> mtime) | 获取当前所有 .md 文件的状态（路径 -> 修改时间）"""
     state = {}
-    # 递归遍历 KNOWLEDGE_ROOT 下所有 .md 文件，排除 memories 目录
+    # 递归遍历 KNOWLEDGE_ROOT 下所有 .md 文件，包括 memories 目录
     for md_file in KNOWLEDGE_ROOT.rglob("*.md"):
-        # Skip the memories directory and its subdirectories | 跳过 memories 目录及其子目录
-        if MEMORIES_DIR in md_file.parents or md_file.parent == MEMORIES_DIR:
-            continue
         try:
             mtime = md_file.stat().st_mtime
             state[str(md_file.relative_to(KNOWLEDGE_ROOT))] = mtime
@@ -154,7 +156,7 @@ def _load_mcp_servers():
             traceback.print_exc()
             continue
 
-# Helper function: Insert a single document into the vector library | 辅助函数：向向量库插入单个文档
+# Helper function: Insert a single document into the vector library and FTS index | 辅助函数：向向量库插入单个文档并更新 FTS 索引
 def _add_document(text: str, source: str = "", doc_type: str = "generic"):
     """Insert document directly (no rebuild) | 直接插入文档（不重建）"""
     model = _get_model()
@@ -164,11 +166,21 @@ def _add_document(text: str, source: str = "", doc_type: str = "generic"):
     cursor = conn.cursor()
     # Check if the same text already exists (optional, avoid duplicates) | 检查是否已存在相同文本（可选，避免重复）
     cursor.execute("SELECT id FROM vectors WHERE text = ?", (text,))
-    if cursor.fetchone() is None:
+    row = cursor.fetchone()
+    if row is None:
         cursor.execute(
             "INSERT INTO vectors (text, embedding, source, type) VALUES (?, ?, ?, ?)",
             (text, emb_blob, source, doc_type)
         )
+        # Get the newly inserted rowid | 获取新插入的行 id
+        new_id = cursor.lastrowid
+        # Also insert into FTS table | 同时插入 FTS 表
+        try:
+            cursor.execute("INSERT INTO fts (rowid, text) VALUES (?, ?)", (new_id, text))
+        except sqlite3.OperationalError as e:
+            # FTS table may not exist yet (first run), ignore | FTS 表可能尚未创建（首次运行），忽略
+            if "no such table" not in str(e):
+                raise
         conn.commit()
     conn.close()
 
@@ -205,11 +217,35 @@ def _init_vector_db():
         cursor.execute("ALTER TABLE vectors ADD COLUMN type TEXT")
     except sqlite3.OperationalError:
         pass
+    # Create FTS5 virtual table for hybrid search | 创建 FTS5 虚拟表用于混合搜索
+    cursor.execute('''
+        CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(
+            text,
+            tokenize = 'unicode61'
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+def _rebuild_fts_index():
+    """Rebuild the FTS index from the vectors table | 从 vectors 表重建 FTS 索引"""
+    conn = sqlite3.connect(VECTOR_DB_PATH)
+    cursor = conn.cursor()
+    # Delete all existing FTS entries | 删除所有现有 FTS 条目
+    cursor.execute("DELETE FROM fts")
+    # Insert all texts from vectors table | 插入所有文本
+    cursor.execute("SELECT id, text FROM vectors")
+    rows = cursor.fetchall()
+    for rowid, text in rows:
+        try:
+            cursor.execute("INSERT INTO fts (rowid, text) VALUES (?, ?)", (rowid, text))
+        except sqlite3.OperationalError:
+            pass
     conn.commit()
     conn.close()
 
 def _incremental_update():
-    """Incremental update: Compare current file status with file_versions table, re-vectorize and update new/modified files, delete corresponding records from vectors table for deleted files. | 增量更新：对比当前文件状态与 file_versions 表，对新增/修改的文件重新向量化并更新，对删除的文件从 vectors 表中删除对应的记录。"""
+    """Incremental update: Compare current file status with file_versions table, re-vectorize and update new/modified files, delete corresponding records from vectors table for deleted files. Also sync memories directory. | 增量更新：对比当前文件状态与 file_versions 表，对新增/修改的文件重新向量化并更新，对删除的文件从 vectors 表中删除对应的记录。同时同步 memories 目录。"""
     print("Performing incremental vector library update... | 正在执行增量向量库更新...")
     current_state = _get_file_state()
     conn = sqlite3.connect(VECTOR_DB_PATH)
@@ -225,18 +261,36 @@ def _incremental_update():
             file_path = KNOWLEDGE_ROOT / path
             try:
                 text = file_path.read_text(encoding='utf-8').strip()
+                text = re.sub(r'^<!--.*?-->', '', text, flags=re.DOTALL).strip()
                 if not text:
                     continue
                 # Delete old records if they exist | 删除旧记录（如果存在）
+                cursor.execute("SELECT id FROM vectors WHERE source = ?", (f"file:{path}",))
+                old_ids = cursor.fetchall()
+                for (old_id,) in old_ids:
+                    cursor.execute("DELETE FROM fts WHERE rowid = ?", (old_id,))
                 cursor.execute("DELETE FROM vectors WHERE source = ?", (f"file:{path}",))
                 # Insert new vector | 插入新向量
                 model = _get_model()
                 emb = model.encode(text)
                 emb_blob = emb.tobytes()
+                
+                # 根据路径判断文档类型
+                if "tools" in Path(path).parts:
+                    doc_type = "tool"
+                elif "skills" in Path(path).parts:
+                    doc_type = "skill"
+                elif "memories" in Path(path).parts:
+                    doc_type = "conversation"
+                else:
+                    doc_type = "hyw" # What the hell | 何意味
+                
                 cursor.execute(
                     "INSERT INTO vectors (text, embedding, source, type) VALUES (?, ?, ?, ?)",
-                    (text, emb_blob, f"file:{path}", "skill")
+                    (text, emb_blob, f"file:{path}", doc_type)
                 )
+                new_id = cursor.lastrowid
+                cursor.execute("INSERT INTO fts (rowid, text) VALUES (?, ?)", (new_id, text))
                 # Update file_versions table | 更新 file_versions 表
                 cursor.execute(
                     "INSERT OR REPLACE INTO file_versions (path, mtime, last_updated) VALUES (?, ?, ?)",
@@ -249,9 +303,24 @@ def _incremental_update():
     # 2. Process deleted files (not in current_state but exist in stored) | 处理删除的文件（在 current_state 中不存在，但在 stored 中存在）
     for path in stored:
         if path not in current_state:
+            cursor.execute("SELECT id FROM vectors WHERE source = ?", (f"file:{path}",))
+            old_ids = cursor.fetchall()
+            for (old_id,) in old_ids:
+                cursor.execute("DELETE FROM fts WHERE rowid = ?", (old_id,))
             cursor.execute("DELETE FROM vectors WHERE source = ?", (f"file:{path}",))
             cursor.execute("DELETE FROM file_versions WHERE path = ?", (path,))
             print(f"Deleted: {path} | 已删除: {path}")
+
+    # 3. Sync conversation memories: for each conversation record, check if backup file exists; if not, delete the record. | 同步对话记忆：对于每条对话记录，检查备份文件是否存在；若不存在则删除记录。
+    cursor.execute("SELECT id, source FROM vectors WHERE type = 'conversation'")
+    conv_records = cursor.fetchall()
+    for conv_id, source in conv_records:
+        if source:
+            backup_path = KNOWLEDGE_ROOT / source
+            if not backup_path.exists():
+                cursor.execute("DELETE FROM fts WHERE rowid = ?", (conv_id,))
+                cursor.execute("DELETE FROM vectors WHERE id = ?", (conv_id,))
+                print(f"Deleted orphaned conversation memory: {source} | 删除孤立的对话记忆: {source}")
 
     conn.commit()
     conn.close()
@@ -265,10 +334,13 @@ def _full_rebuild():
     cursor = conn.cursor()
     cursor.execute('DELETE FROM vectors')
     cursor.execute('DELETE FROM file_versions')
+    cursor.execute('DELETE FROM fts')
     conn.commit()
     conn.close()
     # Reinsert all files | 重新插入所有文件
     _incremental_update()
+    # Rebuild FTS index just in case | 确保 FTS 索引重建
+    _rebuild_fts_index()
 
 # Initialize database | 初始化数据库
 _init_vector_db()
@@ -284,22 +356,17 @@ if count == 0:
 else:
     _incremental_update()
 
-# 5. Retrieval Interface (Supports Recursive Expansion + Deduplication) | 检索接口（支持递归扩展 + 去重）
-def search(query: str, k: int = 1, step: int = 1, rtn: list = None):
+# 5. Retrieval Interface (Single-shot hybrid search, no recursion) | 检索接口（单次混合搜索，无递归）
+def search(query: str, k: int = 5):
     """
-    Retrieve the top k knowledge entries most similar to the query (automatic deduplication, recursive expansion) | 检索与 query 最相似的 k 条知识（自动去重，递归扩展）
+    Retrieve the top k knowledge entries most similar to the query (single-shot, no recursion) | 检索与 query 最相似的 k 条知识（单次检索，无递归）
     Return a list of strings (each knowledge entry is plain text) | 返回字符串列表（每条知识为纯文本）
     """
-    if rtn is None:
-        rtn = []
-
-    if step > k:
-        return rtn
-
+    # Ignore recursive parameters, use single-shot retrieval | 忽略递归参数，直接单次检索
     conn = sqlite3.connect(VECTOR_DB_PATH)
     cursor = conn.cursor()
     # Also read the type field | 同时读取 type 字段
-    cursor.execute("SELECT text, embedding, type FROM vectors")
+    cursor.execute("SELECT id, text, embedding, type FROM vectors")
     rows = cursor.fetchall()
     conn.close()
     if not rows:
@@ -307,8 +374,8 @@ def search(query: str, k: int = 1, step: int = 1, rtn: list = None):
 
     model = _get_model()
     q_emb = model.encode(query)
-    scores = []
-    for text, emb_blob, doc_type in rows:
+    vector_scores = []   # list of (score, id, text, type) | 列表存储 (得分, id, 文本, 类型)
+    for doc_id, text, emb_blob, doc_type in rows:
         emb = np.frombuffer(emb_blob, dtype=np.float32)
         dot = np.dot(q_emb, emb)
         norm_q = np.linalg.norm(q_emb)
@@ -326,22 +393,73 @@ def search(query: str, k: int = 1, step: int = 1, rtn: list = None):
             weight = 1.0  # Default for mcp or unknown types | MCP 或未知类型默认 1.0
 
         final_score = sim * weight
-        scores.append((final_score, text))
-    scores.sort(reverse=True, key=lambda x: x[0])
+        vector_scores.append((final_score, doc_id, text, doc_type))
 
-    # Deduplicate: select the first result not in rtn | 去重选择第一个未在 rtn 中的结果
-    selected = None
-    for score, text in scores:
-        if text not in rtn:
-            selected = (score, text)
-            break
-    if selected is None:
-        return rtn
+    # Sort vector scores descending | 向量得分降序排序
+    vector_scores.sort(reverse=True, key=lambda x: x[0])
 
-    rtn.append(selected[1])
-    # Build new query (accumulate selected results) | 构建新查询（累积已选结果）
-    ans = "\n\n".join(rtn)
-    return search(query + ans, k, step + 1, rtn)
+    # Clean FTS query: remove characters that have special meaning in FTS5 query syntax | 清洗 FTS 查询：移除 FTS5 查询语法中有特殊含义的字符
+    def clean_fts_query(q: str) -> str:
+        # Keep letters, digits, Chinese characters, and spaces; replace everything else with space | 保留字母、数字、中文字符和空格，其余替换为空格
+        cleaned = re.sub(r'[^\w\u4e00-\u9fff\s]', ' ', q)
+        # Collapse multiple spaces | 合并多个空格
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        return cleaned
+
+    # Hybrid search (always enabled) | 混合搜索（始终启用）
+    # Perform FTS5 search | 执行 FTS5 搜索
+    conn_fts = sqlite3.connect(VECTOR_DB_PATH)
+    cursor_fts = conn_fts.cursor()
+    # Use BM25 ranking, get top (k * 2) results | 使用 BM25 排序，获取前 (k*2) 条
+    fts_query = clean_fts_query(query)
+    if fts_query:
+        try:
+            cursor_fts.execute(
+                "SELECT rowid, rank FROM fts WHERE text MATCH ? ORDER BY rank LIMIT ?",
+                (fts_query, k * 2)
+            )
+            fts_results = cursor_fts.fetchall()  # list of (rowid, rank)
+        except Exception as e:
+            # FTS may fail for other reasons, fallback | FTS 可能因其他原因失败，回退
+            print(f"FTS search failed: {e}")
+            fts_results = []
+    else:
+        fts_results = []
+    conn_fts.close()
+
+    # Build a map of doc_id -> fts_rank (lower rank is better) | 构建 doc_id -> fts 排名映射
+    fts_rank_map = {}
+    for rank_idx, (rowid, rank) in enumerate(fts_results):
+        fts_rank_map[rowid] = rank_idx + 1  # 1‑based rank
+
+    # Combine scores using RRF (Reciprocal Rank Fusion) | 使用 RRF（倒数排名融合）合并得分
+    K = 60  # constant
+    combined = {}
+    # Vector part | 向量部分
+    for idx, (vec_score, doc_id, text, doc_type) in enumerate(vector_scores):
+        rank = idx + 1
+        rrf_score = _HYBRID_VECTOR_WEIGHT / (K + rank)
+        combined[doc_id] = (rrf_score, text, doc_type, vec_score)
+    # FTS part | FTS 部分
+    for doc_id, fts_rank in fts_rank_map.items():
+        rrf_score = _HYBRID_FTS_WEIGHT / (K + fts_rank)
+        if doc_id in combined:
+            old_score, text, doc_type, vec_score = combined[doc_id]
+            combined[doc_id] = (old_score + rrf_score, text, doc_type, vec_score)
+        else:
+            # Should not happen because all FTS results should be in vectors, but handle gracefully | 不应发生，但优雅处理
+            combined[doc_id] = (rrf_score, "", "", 0)
+
+    # Sort by combined score descending | 按合并得分降序排序
+    sorted_items = sorted(combined.items(), key=lambda x: x[1][0], reverse=True)
+    # Select top k texts | 选择前 k 条文本
+    final_texts = [item[1][1] for item in sorted_items[:k] if item[1][1]]
+    # If not enough results from hybrid, fallback to vector results | 如果混合结果不足，回退到向量结果
+    if len(final_texts) < k:
+        final_texts.extend([text for _, _, text, _ in vector_scores if text not in final_texts][:k - len(final_texts)])
+
+    # Return final results directly (no recursion) | 直接返回最终结果（无递归）
+    return final_texts
 
 # 6. Dynamically Insert Conversation Memory | 动态插入对话记忆
 def add_conversation(user_msg: str, ai_msg: str):
@@ -349,12 +467,17 @@ def add_conversation(user_msg: str, ai_msg: str):
     Dynamically insert a round of Q&A into the vector library (takes effect in real time), and back up to the knowledge/memories/ directory | 将一轮问答动态插入向量库（实时生效），同时备份到 knowledge/memories/ 目录
     """
     text = f"User | 用户: {user_msg}\nAI: {ai_msg}"
-    # Insert into vector library | 插入向量库
-    _add_document(text, source=f"conv_{int(time.time())}", doc_type="conversation")
+    # Generate backup file name with timestamp and hash | 生成带时间戳和哈希的备份文件名
+    timestamp = int(time.time())
+    file_hash = hash(text) & 0xFFFFFFFF
+    backup_filename = f"{timestamp}_{file_hash}.md"
+    backup_path = MEMORIES_DIR / backup_filename
+    # Insert into vector library using backup file path as source | 使用备份文件路径作为 source 插入向量库
+    source = str(backup_path.relative_to(KNOWLEDGE_ROOT))
+    _add_document(text, source=source, doc_type="conversation")
 
-    backup_file = MEMORIES_DIR / f"{int(time.time())}_{hash(text) & 0xFFFFFFFF}.md"
     try:
-        with open(backup_file, 'w', encoding='utf-8') as f:
+        with open(backup_path, 'w', encoding='utf-8') as f:
             f.write(text)
     except Exception as e:
         print(f"⚠️ Failed to write memory backup: {e} | 写入记忆备份失败: {e}")

@@ -111,3 +111,17 @@
 
 ## [v4.4.1](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.4.1)
 - Reduce redundant memory, fix i18n legacy bugs.
+
+## [v4.5.0](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.5.0)
+- Added hybrid search (vector + FTS5) combining semantic similarity with keyword matching for more accurate knowledge retrieval.
+- Added type‑based weighting: tools (1.0) have higher priority than skills (0.8) and conversation memories (0.2).
+- Added Reciprocal Rank Fusion (RRF) to merge vector and FTS rankings into a single score.
+- Automatic document type detection (tool, skill, conversation) during incremental updates.
+- Removed length penalty – long documents are no longer suppressed, improving retrieval quality.
+- Replaced recursive deep search with breadth‑first single‑shot hybrid retrieval, improving speed and predictability.
+- Adjusted document language order: English descriptions moved before Chinese to fit vector model’s token limit; Chinese keywords are still fully indexed by FTS.
+- Added FTS query cleaning to remove special characters (e.g., `<`, `>`, `:`) and prevent syntax errors.
+- `knowledge/memories/` directory is now included in incremental update scanning; deleting backup files will remove corresponding vector entries.
+- Fixed identical vectors for all tools by removing the copyright comment block from each README, ensuring only meaningful content is vectorised.
+- Fixed skill documents dominating search results by adjusting type weights, document language order, and relying on FTS for keyword matching.
+- Fixed incremental update ignoring the `memories/` directory by including it in file state collection.

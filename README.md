@@ -2,7 +2,7 @@
 
 **Let AI work like a partner – simple, safe, low cost.**
 
-FranxAI is a lightweight AI agent framework that enables AI to read files, execute commands, search the web, understand multimodal content, and truly control the world through the MCP protocol. **Now, it also features an "Echo of Thought" vector knowledge base: all tool descriptions, skill files, and even conversation history are automatically vectorized and persistently stored. With every query, the AI retrieves the most relevant knowledge fragments and injects them into the system prompt, enabling long-term memory, cross-session recall, and dynamic knowledge enhancement. From "Words to Worlds", now let every echo nourish thought.**
+FranxAI is a lightweight AI agent framework that enables AI to read files, execute commands, search the web, understand multimodal content, and truly control the world through the MCP protocol. **Now it also features an "Echo of Thought" vector knowledge base: all tool descriptions, skill files, and even conversation history are automatically vectorized and persistently stored. For every query, the AI uses **hybrid retrieval (vector semantics + keyword matching)** to precisely locate the most relevant knowledge fragments and inject them into the system prompt, enabling long-term memory, cross-session recall, and dynamic knowledge enhancement. From "Words to Worlds", now let every echo nourish thought.**
 
 ---
 
@@ -49,7 +49,7 @@ Available fields in `config.json`:
 | `thinking` | bool | `false` | Enable deep‑thinking mode (GLM only). Slower but outputs reasoning. |
 | `max_iterations` | int | `100` | Max tool call iterations to prevent infinite loops. |
 | `threshold` | int | `20` | When message count exceeds this, compress the earliest 10 into a summary. |
-| `knowledge_k` | int | `1` | Number of knowledge fragments retrieved per conversation. Larger values inject more context but consume more tokens. |
+| `knowledge_k` | int | `5` | Number of knowledge fragments retrieved per conversation. Larger values inject more context but consume more tokens. |
 | `mcp_servers` | list | `[]` | MCP server configurations, each with `name`, `command`, `args` (optional). Example: `[{"name": "windows-mcp", "command": "uvx", "args": ["windows-mcp"]}]`. |
 
 **Independent ETT (multimodal) configuration (optional)**  
@@ -82,8 +82,8 @@ You can specify separate parameters for `ett` under the `tools` field:
     "thinking": false,
     "max_iterations": 100,
     "threshold": 20,
-    "knowledge_k": 3,
-    "settings": "You are a helpful AI assistant.",
+    "knowledge_k": 5,
+    "settings": "You are a helpful AI assistant. 你是一个有用的AI助手。",
     "tools": {
         "ett": {
             "api_key": "your-zhipu-api-key",
@@ -177,7 +177,7 @@ FranxAI loads Markdown files from `knowledge/skills/` and merges them into the s
 **Usage**:
 1. Create `skills/` under `knowledge/` if not exists.
 2. Place your Markdown files there (e.g., `coding_style.md`, `company_rules.md`). You can copy some skills from the [skills branch](https://github.com/xhdlphzr/FranxAI/tree/skills) (note: these skills undergo some review, but FranxAI is not responsible for their content).
-3. Start FranxAI – all `.md` files are automatically read, sorted by filename, and appended after `settings` in the system prompt.
+3. Start FranxAI – all `.md` files are automatically read and stored into the database, ready for retrieval.
 
 **Example**:
 Suppose `skills/coding_style.md` contains:
@@ -191,7 +191,7 @@ The AI will then follow these style conventions in subsequent conversations.
 
 ## 🧠 Memory & Scheduled Tasks
 
-- **Long‑term memory**: FranxAI no longer relies on `memory.txt`. Complete conversation history is automatically saved to `knowledge/memories/` (one `.md` file per session). On next startup, these histories are loaded into the vector knowledge base, allowing semantic retrieval of past conversations.
+- **Long‑term memory**: FranxAI no longer relies on `memory.txt`. Complete conversation history is automatically saved to `knowledge/memories/` (one `.md` file per session). On next startup, these histories are loaded into the vector knowledge base, allowing the AI to recall previous conversations via **hybrid retrieval (vector semantics + keyword matching)**.
 - **History compression**: When messages exceed `threshold`, the first half is compressed into a summary to keep context within limits.
 - **Scheduled tasks**: Background thread checks `tasks.json` every 10 seconds; executes commands at specified times (HH:MM). Supports daily repetition without duplication.
 
@@ -259,5 +259,4 @@ Issues and Pull Requests are welcome! Please keep code clear and update relevant
 
 - All friends who use and support FranxAI
 - [xhdlphzr](https://github.com/xhdlphzr) – a busy coder
-- [zhiziwj](https://github.com/zhiziwj) – provided a suggestion that, while not implemented, was valuable; also implemented a feature
-- [humanity687](https://github.com/humanity687) – raised several constructive issues, all addressed
+- [zhiziwj](https://github.com/zhiziwj) – provided a suggestion that, while not implemented, was valuable; also impleme
