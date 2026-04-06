@@ -135,3 +135,10 @@
 - Knowledge panel refactoring: Collapsible panel that displays retrieved knowledge, each item can be independently expanded to view full text, uses tech‑blue color scheme, scroll support for long documents.
 - Console no longer auto‑opens: User must click to open, avoiding interruption of the chat experience.
 - Added empty‑text check when inserting conversation memory into the vector database in real time, preventing invalid records from polluting search results.
+
+## [v4.6.1](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.6.1)
+- Fixed the issue in `agent.py` where multi‑turn conversation history was being reset; consecutive `input` calls on the same `FranxAI` instance now correctly retain context.  
+- Optimized system prompt delivery: `USER_GUIDE` is sent only once at the beginning of the session, no longer repeated in every turn, significantly reducing token usage.  
+- Dynamically retrieved knowledge is now injected as a temporary system message without polluting the persistent conversation history.  
+- Fixed message synchronization in the tool‑calling loop, ensuring tool results are correctly appended to the history.  
+- Additional minor improvements and code comment updates.

@@ -61,7 +61,7 @@ def save_config(config):
     with open("./config.json", 'w', encoding='utf-8') as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
 
-# ========== Authentication helpers | 认证辅助函数 ==========
+# Authentication helpers | 认证辅助函数
 PRIVATE_KEY_FILE = "private.key"
 PUBLIC_KEY_FILE = "public.key"
 
@@ -153,7 +153,7 @@ def start_cloudflare_tunnel():
         
         # 2. Get the public address | 2. 获取公网地址
         _public_url = tunnel
-        print(f"✅ Cloudflare tunnel started | Cloudflare隧道已启动：{_public_url}")
+        print(f"✅ Cloudflare tunnel started | Cloudflare隧道已启动：{_public_url.tunnel}")
     except Exception as e:
         print(f"❌ Failed to start Cloudflare tunnel | 启动Cloudflare隧道失败：{e}")
 

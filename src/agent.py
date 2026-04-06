@@ -111,6 +111,130 @@ Now you can start helping the user. Remember: **Safety first – for delete oper
 - **禁止直接使用 `time`、`read` 等作为工具名，必须通过 `tools` 工具调用。**
 - **使用工具而非技能，注意任何一个标题后标了技能的都是不能使用的，而是你要学习的**
 
+## 🔨常用工具
+### `read` - Read File Content | 读取文件内容
+- **Purpose**: Call this tool when the user requests to view the content of a file, analyze data within a file, or when you need to obtain information from a file to complete subsequent tasks.
+- **Input**:
+```json
+{
+  "path": "Full path of the file"
+}
+```
+  - `path`: **string**, required. The path can be an absolute path, or a relative path based on the current working directory.
+- **Output**: File content (text format). An error message will be returned if the file does not exist or cannot be read.
+- **Notes**: This tool is read-only and will not modify the file. Ensure the path is correct; confirm the file location via other methods if necessary.
+- **用途**：当用户要求查看某个文件的内容、分析文件中的数据、或者你需要从文件中获取信息以完成后续任务时，请调用此工具。
+- **输入**：
+  ```json
+  {
+    "path": "文件的完整路径"
+  }
+  ```
+  - `path`：**string**，必填。路径可以是绝对路径，也可以是基于当前工作目录的相对路径。
+- **输出**：文件的内容（文本格式）。如果文件不存在或无法读取，会返回错误信息。
+- **注意事项**：此工具是只读的，不会修改文件。确保路径正确，必要时可先用其他方式确认文件位置。
+
+### `write` — Write or append file content | 写入或追加文件内容
+- **Purpose**: Used when the user requests creating new files, writing content to existing files, or modifying files.
+- **Input**:
+  ```json
+  {
+    "path": "Full path of the file",
+    "content": "Content to write",
+    "mode": "overwrite" or "append"  // Default: "overwrite"
+  }
+  ```
+  - `path`: **string**, required, full path of the file
+  - `content`: **string**, required, content to be written
+  - `mode`: **string**, optional, default is "overwrite". Available values: "overwrite" for replacement, "append" for adding content
+- **Output**: Prompt message indicating whether the operation succeeded or failed.
+- **Notes**:
+  - Ensure the written content is explicitly requested by the user; do not modify files arbitrarily.
+  - If the directory where the file is located does not exist, the tool will automatically create the directory (permissions required).
+- **用途**：当用户要求创建新文件、向现有文件中写入内容、修改文件时使用。
+- **输入**：
+  ```json
+  {
+    "path": "文件的完整路径",
+    "content": "要写入的内容",
+    "mode": "overwrite" 或 "append"  // 默认 "overwrite"
+  }
+  ```
+  - `path`：**string**，必填，文件的完整路径
+  - `content`：**string**，必填，要写入的内容
+  - `mode`：**string**，可选，默认为"overwrite"，可选值："overwrite"覆盖、"append"追加
+- **输出**：操作成功或失败的提示信息。
+- **注意事项**：
+  - 请确保写入的内容是用户明确要求的，不要随意修改文件。
+  - 如果文件所在目录不存在，工具会自动创建目录（需要权限）。
+
+### `command` - Execute System Commands (With Administrator Privileges) | 执行系统命令（具有管理员权限）
+- **Purpose**: Use this tool when users need to run programs, execute scripts, manage system services, install software, or perform other command-line tasks. This tool has **administrator privileges**, enabling most system-level operations.
+- **Input**:
+```json
+{
+  "command": "Full command string to execute"
+}
+```
+- `command`: **string** (required; pass the complete system command string)
+- **Output**: Standard output and standard error output of the command. An error code and error message will be returned if the command fails to execute.
+- **⚠️ Critical Restriction - File Deletion Handling**:
+Direct execution of any file or directory deletion commands (such as `del`, `rm`, `rmdir`, `shred`, etc.) with this tool is **strictly prohibited**. If the user requests file deletion, you must:
+1. **Do not use the `command` tool to perform deletion operations.**
+2. Replace it with a move operation to send files to the system recycle bin (or a designated secure directory, e.g., `C:\Users\Username\To-Delete`). Examples:
+  - On Windows: Use `move <file path> <recycle bin path>`. For safe recycling via PowerShell: `Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('<file>','OnlyErrorDialogs','SendToRecycleBin')`. For simplicity, define a fixed secure folder such as `C:\To-Delete` and use the `move` command.
+  - On Linux/macOS: Use commands like `mv <file> ~/.Trash/` or `gio trash <file>`.
+3. After completing the move operation, record the moved file information via the `write` tool (e.g., write to a log file) for user recovery later.
+- **Other Security Rules**:
+  - Do not execute commands that may damage the system, compromise privacy, or violate user intent.
+  - Never run high-risk operations (e.g., disk formatting, registry modification) regardless of user consent.
+  - Use standard command syntax and avoid complex options with potential side effects.
+
+**Usage Principle**: Prioritize safe, compliant commands for user requests. Confirm permissions and risks with users if uncertain. Replace all deletion actions with file moves and record logs strictly.
+
+- **用途**：当用户需要运行程序、执行脚本、管理系统服务、安装软件等需要命令行操作的任务时，使用此工具。此工具拥有**管理员权限**，因此可以执行大多数系统级操作。
+- **输入**：
+  ```json
+  {
+    "command": "要执行的完整命令字符串"
+  }
+  ```
+  - `command`：**string**（必填，需传入完整的系统命令字符串）
+- **输出**：命令的标准输出和标准错误输出。如果命令执行失败，会返回错误码和错误信息。
+- **⚠️ 重要限制 — 删除文件处理**：
+  此工具**严禁直接执行任何删除文件或目录的命令**（如 `del`、`rm`、`rmdir`、`shred` 等）。如果用户要求删除文件，你必须：
+  1. **不要使用 `command` 工具执行删除操作。**
+  2. 改为使用**移动操作**，将文件移动到系统的回收站（或一个指定的安全目录，如 `C:\Users\用户名\待删除`）。例如：
+     - 在 Windows 上：使用 `move <文件路径> <回收站路径>` 或 PowerShell 的 `Remove-Item -LiteralPath <文件> -Force` ？不，Remove-Item 会直接删除。更安全的是移动到回收站：你可以使用 PowerShell 命令 `Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('<文件>','OnlyErrorDialogs','SendToRecycleBin')`，但需要谨慎。简单起见，可以定义一个固定的安全目录，例如 `C:\待删除`，然后用 `move` 命令移过去。
+     - 在 Linux/macOS 上：可以使用 `mv <文件> ~/.Trash/` 或 `gio trash <文件>` 等命令。
+  3. 执行移动操作后，请务必通过 `write` 工具记录下被移动的文件信息（例如写入日志文件），以便用户日后找回。
+- **其他安全规则**：
+  - 不要执行任何可能损坏系统、危害隐私或违反用户意图的命令。
+  - 在执行高危操作（如格式化磁盘、修改注册表等）之前，无论有没有用户同意，都不可以执行。
+  - 尽量使用命令的标准语法，避免使用过于复杂或可能产生副作用的选项。
+
+**使用原则**：当用户需求涉及上述命令时，优先选择安全且符合意图的选项。若不确定命令的权限或潜在影响，先向用户确认。对于任何删除类操作，坚决采用移动替代方案，并记录日志。
+
+### search - Web Search | 网络搜索
+- **Purpose**: Search internet information to obtain real-time data, news, encyclopedia content and more.
+- **Input**:
+  - `query`: **string**, required, search keyword
+  - `max_results`: **integer**, optional, number of returned results (default: 5)
+- **Output**: Formatted list of search results; each item contains a title, summary and link.
+- **Notes**:
+  - Completely free, no API Key required.
+  - Real-time search results, consistent with DuckDuckGo used in browsers.
+  - Please use reasonably, avoid sending a large number of requests in a short period of time.
+- **用途**：搜索互联网信息，获取实时数据、新闻、百科内容等。
+- **输入**：
+  - `query`：**string**，必填，搜索关键词
+  - `max_results`：**integer**，可选，返回条数（默认 5）
+- **输出**：格式化后的搜索结果列表，每条包含标题、摘要、链接。
+- **注意事项**：
+  - 完全免费，无需 API Key。
+  - 搜索结果是实时的，与浏览器中使用 DuckDuckGo 一致。
+  - 请合理使用，避免短时间内大量请求。
+
 现在，你可以开始帮助用户了。记住：**安全第一，对于删除操作永远用移动替代直接删除。**
 """
 
@@ -171,42 +295,47 @@ class FranxAI:
         self.tools_metadata = tools_metadata
         self.tools = self.tools_metadata
 
-        # Base system prompt (without dynamic knowledge) | 基础系统提示（不含动态知识）
-        base_prompt = f"{USER_GUIDE}\n\n---\n\n{self.user_settings}"
-        self.base_messages = [{"role": "system", "content": base_prompt}]
-
-        # Actual message history (copies base_messages and is enhanced before each conversation) | 实际消息历史（会复制 base_messages 并在每次对话前增强）
-        self.messages = self.base_messages.copy()
+        # Fixed base system prompt (contains USER_GUIDE and user settings) | 固定的基础系统提示（包含 USER_GUIDE 和用户设置）
+        self.base_system_prompt = f"{USER_GUIDE}\n\n---\n\n{self.user_settings}"
+        # Persistent message history: first message is always the base system prompt | 持久化消息历史：第一条消息始终是基础系统提示
+        self.messages = [{"role": "system", "content": self.base_system_prompt}]
 
         # Register cleanup of MCP clients on exit | 注册退出时清理 MCP 客户端
         atexit.register(cleanup_mcp_clients)
 
-    def _build_enhanced_system_prompt(self, user_input):
-        """
-        Retrieve relevant knowledge based on user input and return an enhanced system prompt string | 根据用户输入检索相关知识，并返回增强后的系统提示字符串
-        """
-        # Retrieve relevant knowledge | 检索相关知识
-        relevant = search(user_input, k=self.knowledge_k)
-        if not relevant:
-            return self.base_messages[0]["content"]
-
-        knowledge_text = "\n\n".join(relevant)
-        return self.base_messages[0]["content"] + f"\n\n## Related Content | 相关内容\n{knowledge_text}"
-
     def input(self, msg: str):
         """
         Process user messages, supporting streaming output of AI replies | 处理用户消息，支持流式输出 AI 回复
-        - Dynamically retrieve knowledge and enhance the system prompt before each conversation | - 每次对话前动态检索知识并增强系统提示
+        - Persist user message in history | - 将用户消息持久化到历史
+        - Dynamically retrieve knowledge and add as a temporary system message (not persisted) | - 动态检索知识并作为临时系统消息添加（不持久化）
         - When the model returns text, yield it character by character | - 当模型返回文本时，逐字 yield 内容
         - When the model needs to call a tool, execute the tool synchronously and print the tool call info to stdout (can be redirected) | - 当模型需要调用工具时，同步执行工具，并将工具调用信息打印到 stdout（可被重定向）
         - Loop until no tool calls remain | - 循环处理直到无工具调用
         """
         print("AI is thinking... | AI思考中...")
 
-        # Build the enhanced message list for this conversation | 为本次对话构建增强后的消息列表
-        enhanced_system = self._build_enhanced_system_prompt(msg)
-        self.messages = [{"role": "system", "content": enhanced_system}] + self.base_messages[1:]
+        # 1. Persist the current user message | 1. 将当前用户消息持久化
         self.messages.append({"role": "user", "content": msg})
+
+        # 2. Retrieve relevant knowledge for this query | 2. 为本次查询检索相关知识
+        relevant = search(msg, k=self.knowledge_k)
+
+        # 3. Build the initial message list for this API call | 3. 构建本次 API 调用的初始消息列表
+        # Start with the fixed base system prompt | 以固定的基础系统提示开头
+        api_messages = [{"role": "system", "content": self.base_system_prompt}]
+
+        # If there is relevant knowledge, add it as an extra system message (immediately after the base prompt) | 如果有相关知识，添加为额外的系统消息（紧跟在基础提示之后）
+        if relevant:
+            knowledge_text = "\n\n".join(relevant)
+            api_messages.append({
+                "role": "system",
+                "content": f"## Related Content | 相关内容\n{knowledge_text}"
+            })
+
+        api_messages.extend(self.messages[1:])
+
+        # Make a working copy that we will update during the tool call loop | 制作一个工作副本，用于在工具调用循环中更新
+        current_api_messages = api_messages.copy()
 
         iteration = 0
         while iteration < self.max_iterations:
@@ -214,7 +343,7 @@ class FranxAI:
             if self.thinking:
                 stream = self.client.chat.completions.create(
                     model=self.model,
-                    messages=self.messages,
+                    messages=current_api_messages,
                     temperature=self.temperature,
                     tools=self.tools,
                     tool_choice="auto",
@@ -223,7 +352,7 @@ class FranxAI:
             else:
                 stream = self.client.chat.completions.create(
                     model=self.model,
-                    messages=self.messages,
+                    messages=current_api_messages,
                     temperature=self.temperature,
                     tools=self.tools,
                     tool_choice="auto",
@@ -265,6 +394,8 @@ class FranxAI:
                 "content": full_content,
                 "tool_calls": list(tool_calls_data.values()) if tool_calls_data else None
             }
+            # Append to both current API messages and persistent history | 同时追加到当前 API 消息列表和持久化历史
+            current_api_messages.append(assistant_message)
             self.messages.append(assistant_message)
 
             # If no tool calls, finish | 如果没有工具调用，结束
@@ -297,12 +428,14 @@ class FranxAI:
                     result = f"Error: unknown tool {func_name} | 错误：未知工具 {func_name}"
                     print(result)
 
-                # Add tool execution result to message history | 将工具执行结果加入消息历史
-                self.messages.append({
+                # Add tool execution result to both current API messages and persistent history | 将工具执行结果同时加入当前 API 消息列表和持久化历史
+                tool_message = {
                     "role": "tool",
                     "tool_call_id": tool_call["id"],
                     "content": str(result)
-                })
+                }
+                current_api_messages.append(tool_message)
+                self.messages.append(tool_message)
 
             iteration += 1
 
@@ -337,4 +470,4 @@ class FranxAI:
             return
         # Consume the summary generator to complete compression (ignore output) | 消费摘要生成器，完成压缩（忽略输出）
         for _ in self.summarize_msg(len(self.messages) // 2 + 1):
-            pass 
+            pass
