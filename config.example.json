@@ -11,7 +11,6 @@
     "tools": {
         "ett": {
             "api_key": "your-zhipu-api-key",
-            "base_url": "https://open.bigmodel.cn/api/paas/v4",
             "model": "glm-4.6v-flash",
             "temperature": 0.8,
             "thinking": false,
@@ -19,11 +18,5 @@
             "max_retries": 20
         }
     },
-    "mcp_servers": [
-        {
-            "name": "windows-mcp",
-            "command": "uvx",
-            "args": ["windows-mcp"]
-        }
-    ]
+    "mcp_servers": []
 }

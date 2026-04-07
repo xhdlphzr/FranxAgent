@@ -147,4 +147,10 @@
 - 更改 `agent.py` 中的 `USER_GUIDE`。
 
 ## [v4.6.3](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.6.3)
-- 修复 Flask 的 `app.secret_key` 硬编码安全漏洞，改为从 `config.json` 读取随机生成的密钥（首次启动自动生成）。以前为了图省事直接在代码中写死，对不起。  
+- 修复 Flask 的 `app.secret_key` 硬编码安全漏洞，改为从 `config.json` 读取随机生成的密钥（首次启动自动生成）。以前为了图省事直接在代码中写死，对不起。
+
+## [v4.6.4](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.6.4)
+- 删除了 `config.json` 中 `ett` 工具的 `base_url` 字段，因为不再需要。
+- 调整用户体验，启动时自动复制 `config.example.json` 并改名为 `config.json`，用户无需手动操作。
+- 增加点击确认免责声明框，用户必须点击确认后才能继续使用。
+- 新增了抖动动画。

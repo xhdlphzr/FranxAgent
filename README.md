@@ -44,7 +44,7 @@ cd FranxAI
 Windows users double‑click `start.bat`, macOS users double‑click `start.sh` – virtual environment and dependencies will be set up automatically.
 
 ### 3. Configure
-Copy `config.example.json` and rename it to `config.json`, then modify according to your needs (see configuration section below).
+Modify `config.json` according to your needs (see configuration section below).
 
 ### 4. Run
 Windows users double‑click `run.bat`, macOS users double‑click `run.sh`.  
@@ -120,7 +120,6 @@ Inside the `tools` field, you can specify separate parameters for `ett` (multimo
     "tools": {
         "ett": {
             "api_key": "your-zhipu-api-key",
-            "base_url": "https://open.bigmodel.cn/api/paas/v4",
             "model": "glm-4.6v-flash",
             "temperature": 0.8,
             "thinking": false,

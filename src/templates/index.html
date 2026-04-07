@@ -540,8 +540,6 @@ You should have received a copy of the GNU General Public License along with Fra
                     <h3>📸 ETT (Multimodal) Tool Configuration | ETT（多模态理解）工具配置</h3>
                     <label>API Key (ett) | API密钥 (ett)</label>
                     <input type="text" id="ett_api_key" placeholder="Leave empty to use top-level API key | 留空则使用顶层API密钥">
-                    <label>Base URL (ett) | 接口地址 (ett)</label>
-                    <input type="text" id="ett_base_url" placeholder="Leave empty to use top-level base URL | 留空则使用顶层接口地址">
                     <label>Model Name (ett) | 模型名称 (ett)</label>
                     <input type="text" id="ett_model" value="glm-4.6v-flash">
                     <label>Temperature (ett) | 温度 (ett)</label>
@@ -1029,7 +1027,6 @@ You should have received a copy of the GNU General Public License along with Fra
                 document.getElementById('knowledge_k').value = config.knowledge_k ?? 1;
                 const ett = config.tools?.ett || {};
                 document.getElementById('ett_api_key').value = ett.api_key || '';
-                document.getElementById('ett_base_url').value = ett.base_url || '';
                 document.getElementById('ett_model').value = ett.model || 'glm-4.6v-flash';
                 document.getElementById('ett_temperature').value = ett.temperature ?? 0.8;
                 document.getElementById('ett_thinking').checked = ett.thinking ?? false;
@@ -1055,7 +1052,6 @@ You should have received a copy of the GNU General Public License along with Fra
             knowledge_k: parseInt(document.getElementById('knowledge_k').value),
             tools: { ett: {
                 api_key: document.getElementById('ett_api_key').value,
-                base_url: document.getElementById('ett_base_url').value,
                 model: document.getElementById('ett_model').value,
                 temperature: parseFloat(document.getElementById('ett_temperature').value),
                 thinking: document.getElementById('ett_thinking').checked,

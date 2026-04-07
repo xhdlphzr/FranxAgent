@@ -20,7 +20,7 @@ def _get_config():
     tool_cfg = full_config.get("tools", {}).get("ett", {})
     return {
         "api_key": tool_cfg.get("api_key", full_config.get("api_key")),
-        "base_url": tool_cfg.get("base_url", full_config.get("base_url")),
+        "base_url": "https://open.bigmodel.cn/api/paas/v4",
         "model": tool_cfg.get("model", "glm-4.6v-flash"),
         "temperature": tool_cfg.get("temperature", full_config.get("temperature", 0.8)),
         "thinking": tool_cfg.get("thinking", full_config.get("thinking", False)),
