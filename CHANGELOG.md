@@ -144,4 +144,7 @@
 - Additional minor improvements and code comment updates.
 
 ## [v4.6.2](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.6.2)
-- Change `USER_GUIDE` in `agent.py`
+- Change `USER_GUIDE` in `agent.py`.
+
+## [v4.6.3](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.6.3)
+- Fixed hardcoded Flask `app.secret_key` security issue; now reads randomly generated key from `config.json` (auto‑generated on first start). Previously hardcoded for convenience, sorry.

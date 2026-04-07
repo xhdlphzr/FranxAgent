@@ -36,7 +36,6 @@ from knowledge import search, add_conversation
 
 # Create Flask application instance | 创建Flask应用实例
 app = Flask(__name__)
-app.secret_key = 'FranxAI'
 
 # Startup timestamp for session validation | 启动时的时间戳，用于会话验证
 STARTUP_ID = str(int(time.time()))
@@ -60,6 +59,13 @@ def save_config(config):
     """
     with open("./config.json", 'w', encoding='utf-8') as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
+
+# Setup Flask secret key from configuration | 从配置文件设置 Flask 密钥
+config = load_config()
+if 'flask_secret_key' not in config:
+    config['flask_secret_key'] = secrets.token_hex(32)
+    save_config(config)
+app.secret_key = config['flask_secret_key']
 
 # Authentication helpers | 认证辅助函数
 PRIVATE_KEY_FILE = "private.key"

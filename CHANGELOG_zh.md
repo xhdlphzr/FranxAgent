@@ -144,4 +144,7 @@
 - 其他细节改进与代码注释优化。
 
 ## [v4.6.2](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.6.2)
-- 更改 `agent.py` 中的 `USER_GUIDE`
+- 更改 `agent.py` 中的 `USER_GUIDE`。
+
+## [v4.6.3](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.6.3)
+- 修复 Flask 的 `app.secret_key` 硬编码安全漏洞，改为从 `config.json` 读取随机生成的密钥（首次启动自动生成）。以前为了图省事直接在代码中写死，对不起。  
