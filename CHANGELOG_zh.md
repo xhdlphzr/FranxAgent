@@ -142,3 +142,6 @@
 - 动态检索的知识现在以临时系统消息注入，不影响持久化对话历史。  
 - 修复工具调用循环中消息同步问题，确保工具结果正确追加到历史中。  
 - 其他细节改进与代码注释优化。
+
+## [v4.6.2](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.6.2)
+- 更改 `agent.py` 中的 `USER_GUIDE`

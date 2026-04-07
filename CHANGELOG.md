@@ -142,3 +142,6 @@
 - Dynamically retrieved knowledge is now injected as a temporary system message without polluting the persistent conversation history.  
 - Fixed message synchronization in the tool‑calling loop, ensuring tool results are correctly appended to the history.  
 - Additional minor improvements and code comment updates.
+
+## [v4.6.2](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.6.2)
+- Change `USER_GUIDE` in `agent.py`
