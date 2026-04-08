@@ -1,0 +1,10 @@
+/config.json
+__pycache__/
+*.pyc
+memory.txt
+tasks.json
+knowledge/*
+!knowledge/__init__.py
+!knowledge/tools/
+/private.key
+/public.key

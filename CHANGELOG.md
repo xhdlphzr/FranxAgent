@@ -149,8 +149,11 @@
 ## [v4.6.3](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.6.3)
 - Fixed hardcoded Flask `app.secret_key` security issue; now reads randomly generated key from `config.json` (auto‑generated on first start). Previously hardcoded for convenience, sorry.
 
-## [v4.6.4](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.6.4)
+## [v4.7.0](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.7.0)
 - Removed the `base_url` field for the `ett` tool from `config.json` as it is no longer needed.  
 - Improved user experience: automatically copy `config.example.json` and rename it to `config.json` on startup, so users don’t need to do it manually.  
 - Added a click‑to‑confirm disclaimer checkbox that users must check before continuing to use.
 - Added shake animation.
+
+## [v4.7.1](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.7.1)
+- Added `.gitignore` file.
