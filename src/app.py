@@ -396,6 +396,44 @@ def check_auth():
         valid = verify_jwt_token(token)
     return jsonify({'password_set': password_set, 'authenticated': valid})
 
+@app.route('/api/messages', methods=['GET'])
+@login_required
+def get_messages():
+    """Return current conversation messages for cross‑device sync | 返回当前对话消息用于跨设备同步"""
+    if chat_agent is None:
+        return jsonify({'error': 'Agent not initialized'}), 500
+    # Return a copy to avoid accidental modification | 返回副本以避免意外修改
+    return jsonify({'messages': chat_agent.messages.copy()})
+
+@app.route('/api/save_partial', methods=['POST'])
+@login_required
+def save_partial():
+    """
+    Save a partially generated response when the user stops the generation. | 当用户停止生成时保存部分回复内容。
+    This ensures that the already streamed content is persisted in the conversation history and vector memory, enabling cross‑device sync and long‑term recall. | 确保已流式输出的内容被持久化到对话历史和向量记忆，从而实现跨设备同步和长期回忆。
+    """
+    if chat_agent is None:
+        return jsonify({'error': 'Agent not initialized'}), 500
+
+    data = request.get_json()
+    user_message = data.get('user_message')
+    partial_response = data.get('partial_response')
+
+    if not user_message or not partial_response:
+        return jsonify({'error': 'Missing user_message or partial_response'}), 400
+
+    # Append the partial assistant message to the in‑memory conversation history | 将部分助手消息追加到内存中的对话历史
+    assistant_message = {"role": "assistant", "content": partial_response}
+    chat_agent.messages.append(assistant_message)
+
+    # Save to vector database and memories directory (backup) | 保存到向量数据库和 memories 目录（备份）
+    add_conversation(user_message, partial_response)
+
+    # Trigger memory compression to keep context length under control | 触发记忆压缩以控制上下文长度
+    chat_agent.memory()
+
+    return jsonify({'status': 'ok'})
+
 # Frontend routes | 前端路由
 @app.route('/login')
 def login_page():

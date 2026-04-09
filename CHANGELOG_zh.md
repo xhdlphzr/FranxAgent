@@ -157,3 +157,7 @@
 
 ## [v4.7.1](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.7.1)
 - 增加 `.gitignore` 文件。
+
+## [v4.8.0](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.8.0)
+- 增加了全平台共享聊天记录的功能。
+- 修复了部分回复内容保存问题。

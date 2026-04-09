@@ -609,6 +609,11 @@ You should have received a copy of the GNU General Public License along with Fra
     let currentAbortController = null;
     let isGenerating = false;
 
+    // Global variables for partial response saving | 用于保存部分回复的全局变量
+    let currentUserMessage = '';          // Current user message | 当前用户消息
+    let currentPartialText = '';          // Accumulated partial assistant response | 已累积的部分回复内容
+    let currentAssistantMsgDiv = null;    // Temporary assistant message element | 临时助手消息元素
+
     // Helper: escape HTML | 辅助函数：转义HTML
     function escapeHtml(str) {
         return str.replace(/[&<>]/g, function(m) {
@@ -683,13 +688,13 @@ You should have received a copy of the GNU General Public License along with Fra
         if (temporary) msgDiv.classList.add('temp');
 
         if (role === 'assistant' && temporary) {
-            // 使用文本节点 + 内联小球，使小球跟随文本末尾
+            // Use text node + inline dot to follow the end of the text content | 使用文本节点 + 内联小球，使小球跟随文本末尾
             const textNode = document.createTextNode(content);
             const dot = document.createElement('span');
             dot.className = 'typing-dot';
             msgDiv.appendChild(textNode);
             msgDiv.appendChild(dot);
-            msgDiv._textNode = textNode;   // 存储文本节点引用
+            msgDiv._textNode = textNode;   // Store the reference of the text node | 存储文本节点引用
         } else if (parseMarkdown && !temporary) {
             const html = marked.parse(content);
             msgDiv.innerHTML = html;
@@ -706,7 +711,7 @@ You should have received a copy of the GNU General Public License along with Fra
         return msgDiv;
     }
 
-    // Update message content (for assistant temporary messages, update the text node)
+    // Update message content (for assistant temporary messages, update the text node) | 更新助手临时消息的文本节点内容
     function updateMessage(msgDiv, content) {
         if (msgDiv._textNode) {
             msgDiv._textNode.textContent = content;
@@ -718,7 +723,7 @@ You should have received a copy of the GNU General Public License along with Fra
         saveMessagesToLocalStorage();
     }
 
-    // Remove breathing dot from a message
+    // Remove breathing dot from a message | 移除消息中的呼吸小球
     function removeTypingDot(msgDiv) {
         const dot = msgDiv.querySelector('.typing-dot');
         if (dot) dot.remove();
@@ -736,11 +741,47 @@ You should have received a copy of the GNU General Public License along with Fra
         sendBtn.removeEventListener('click', stopGeneration);
         sendBtn.addEventListener('click', sendMessage);
     }
+    // Stop generation and save partial response if any | 停止生成并保存部分回复（如果有）
     function stopGeneration() {
-        if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
+        if (currentAbortController) {
+            currentAbortController.abort();
+            currentAbortController = null;
+        }
         setSendButtonToSend();
         isGenerating = false;
-        addMessage('assistant', '(Stopped generating) | （已停止生成）');
+
+        // If there is any partial response, save it to the backend | 如果有部分回复内容，则保存到后端
+        if (currentPartialText && currentUserMessage) {
+            // Save partial response via API | 通过 API 保存部分回复
+            fetchWithAuth('/api/save_partial', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_message: currentUserMessage,
+                    partial_response: currentPartialText
+                })
+            }).catch(e => console.error('Failed to save partial response', e));
+
+            // Update the temporary assistant message to include the partial content and a stop marker | 更新临时助手消息，包含部分内容及停止标记
+            if (currentAssistantMsgDiv) {
+                updateMessage(currentAssistantMsgDiv, currentPartialText + '\n\n(Stopped generating) | （已停止生成）');
+                removeTypingDot(currentAssistantMsgDiv);
+                // Mark as not temporary so it will be saved to localStorage | 标记为非临时，以便保存到本地存储
+                currentAssistantMsgDiv.classList.remove('temp');
+                saveMessagesToLocalStorage();
+            } else {
+                // Fallback: add a new message | 后备方案：添加新消息
+                addMessage('assistant', currentPartialText + '\n\n(Stopped generating) | （已停止生成）');
+            }
+        } else {
+            // No content generated, just add a stop message | 没有生成任何内容，直接添加停止消息
+            addMessage('assistant', '(Stopped generating) | （已停止生成）');
+        }
+
+        // Reset global variables | 重置全局变量
+        currentUserMessage = '';
+        currentPartialText = '';
+        currentAssistantMsgDiv = null;
     }
     setSendButtonToSend();
 
@@ -762,7 +803,7 @@ You should have received a copy of the GNU General Public License along with Fra
         const header = panel.querySelector('.knowledge-header');
         const inner = panel.querySelector('.knowledge-inner');
 
-        // 添加点击切换动画
+        // Add click toggle animation | 添加点击切换动画
         header.addEventListener('click', () => {
             const isOpen = panel.classList.contains('open');
             if (isOpen) {
@@ -819,12 +860,18 @@ You should have received a copy of the GNU General Public License along with Fra
         if (!message || isGenerating) return;
         isGenerating = true;
         messageInput.value = '';
+
+        // Store current message and reset partial text | 存储当前用户消息并重置部分文本
+        currentUserMessage = message;
+        currentPartialText = '';
+
         currentAbortController = new AbortController();
         const signal = currentAbortController.signal;
         setSendButtonToStop();
 
         addMessage('user', message, false, '', true);
         const assistantMsgDiv = addMessage('assistant', 'Thinking... | 思考中...', true, '', false);
+        currentAssistantMsgDiv = assistantMsgDiv;   // Store reference for stop handler | 存储引用供停止处理使用
         consoleOutput.textContent = '';
         // Do NOT auto-open console | 不自动打开控制台
 
@@ -850,6 +897,7 @@ You should have received a copy of the GNU General Public License along with Fra
                             const data = JSON.parse(line.substring(6));
                             if (data.type === 'content') {
                                 fullText += data.text;
+                                currentPartialText = fullText;   // Update partial text | 更新部分文本
                                 if (isFirstChunk) {
                                     updateMessage(assistantMsgDiv, fullText);
                                     isFirstChunk = false;
@@ -912,6 +960,10 @@ You should have received a copy of the GNU General Public License along with Fra
             setSendButtonToSend();
             isGenerating = false;
             currentAbortController = null;
+            // Reset global variables after finishing (success or error) | 完成后重置全局变量
+            currentUserMessage = '';
+            currentPartialText = '';
+            currentAssistantMsgDiv = null;
         }
     }
     messageInput.addEventListener('keydown', (e) => { if (e.ctrlKey && e.key === 'Enter') sendMessage(); });
@@ -1131,6 +1183,35 @@ You should have received a copy of the GNU General Public License along with Fra
         } catch(e) { console.error(e); }
     }
 
+    // Load conversation messages from the server and render them. | 从服务器加载对话消息并渲染。
+    // Returns true if messages were successfully loaded and displayed, false otherwise. | 成功加载并显示返回 true，否则返回 false。
+    async function loadMessagesFromServer() {
+        try {
+            const resp = await fetchWithAuth('/api/messages');
+            const data = await resp.json();
+            if (data.messages && data.messages.length > 0) {
+                // Clear current chat display | 清空当前聊天显示
+                chatMessages.innerHTML = '';
+                // Re-render all messages from server (skip system and tool roles) | 重新渲染服务器返回的所有消息（跳过 system 和 tool 角色）
+                data.messages.forEach(msg => {
+                    if (msg.role === 'user') {
+                        addMessage('user', msg.content, false, '', true);
+                    } else if (msg.role === 'assistant') {
+                        addMessage('assistant', msg.content, false, '', false);
+                    }
+                    // ignore system and tool | 忽略 system 和 tool
+                });
+                // Update local storage to keep in sync | 更新本地存储以保持同步
+                saveMessagesToLocalStorage();
+                return true;
+            }
+            return false;
+        } catch(e) {
+            console.error('Failed to load messages from server', e);
+            return false;
+        }
+    }
+
     // Initialization | 初始化
     (async function init() {
         const tempToken = localStorage.getItem('franxai_temp_token');
@@ -1138,7 +1219,12 @@ You should have received a copy of the GNU General Public License along with Fra
         const authenticated = await checkAuth();
         if (!authenticated) return;
         await checkSessionAndClear();
-        loadMessagesFromLocalStorage();
+        // Try to load messages from server first (cross-device sync) | 优先尝试从服务器加载消息（跨设备同步）
+        const loadedFromServer = await loadMessagesFromServer();
+        if (!loadedFromServer) {
+            // Fallback to local storage if server has no messages or failed | 如果服务器无消息或失败，回退到本地存储
+            loadMessagesFromLocalStorage();
+        }
         loadConfig();
         loadTasks();
     })();
