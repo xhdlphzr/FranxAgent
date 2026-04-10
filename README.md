@@ -78,7 +78,7 @@ In `config.json`, you can adjust the following parameters:
 | `base_url` | string | - | API base URL (required). For Ollama: `http://localhost:11434/v1`, for GLM: `https://open.bigmodel.cn/api/paas/v4`. |
 | `model` | string | - | Model name (required). Recommended: `glm-4.7-flash`, `qwen2.5:7b`, etc. |
 | `settings` | string | `"You are a helpful AI assistant. 你是一个有用的AI助手。"` | System prompt defining AI’s role or behaviour. |
-| `temperature` | float | `0.8` | Randomness, range 0–1. Lower = more deterministic, higher = more creative. |
+| `temperature` | float | `0.8` | Randomness, range 0–2 (but recommended 0–1). Lower = more deterministic, higher = more creative. |
 | `thinking` | bool | `false` | Enable deep thinking mode (GLM models only). The model outputs reasoning steps but responds slightly slower. |
 | `max_iterations` | int | `100` | Max tool call iterations to prevent infinite loops. |
 | `threshold` | int | `20` | Message count threshold for history compression. When exceeded, the oldest 10 messages are summarised. |
