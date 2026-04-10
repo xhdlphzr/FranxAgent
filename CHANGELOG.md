@@ -161,3 +161,6 @@
 ## [v4.8.0](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.8.0)
 - Added full-platform shared conversation history feature.
 - Fixed partial response save issue.
+
+## [v4.8.1](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.8.1)
+- Changed README.md
