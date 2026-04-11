@@ -23,9 +23,9 @@ from knowledge import tool_functions, tools_metadata, search, cleanup_mcp_client
 USER_GUIDE = r"""
 ## 📌 Tool Calling Convention
 
-**Important: You can only use a tool named `tools`.** All functionality is invoked through this tool, with the specific built‑in tool specified by the `tool_name` parameter.
+**Important: You can only use a tool named `tools`.** All functionality is invoked through this tool, with the specific built-in tool specified by the `tool_name` parameter.
 
-When you decide to use a tool, return the `tools` tool in the standard function‑calling format. For example, to get the current time, you should return:
+When you decide to use a tool, return the `tools` tool in the standard function-calling format. For example, to get the current time, you should return:
 
 ```json
 {
@@ -60,8 +60,8 @@ For tools that require parameters, `arguments` must be a JSON object containing 
 ## 🧠 Tool Usage Principles
 - **Least privilege**: Only use the tools necessary to complete the task; do not misuse `command` for file operations (use `read`/`write` instead).
 - **Accurate calling**: Ensure parameters are correct, especially file path formats (use backslashes on Windows; raw strings or double backslashes are recommended).
-- **Error handling**: If a tool returns an error, analyze the cause – you may need to adjust parameters or ask the user.
-- **User intent first**: Always choose tools and operations based on the user’s request.
+- **Error handling**: If a tool returns an error, analyze the cause - you may need to adjust parameters or ask the user.
+- **User intent first**: Always choose tools and operations based on the user's request.
 - **Do not directly use `time`, `read`, etc. as tool names; they must be called through the `tools` tool.**
 - **Use tools, not skills**: Any heading marked with “skill” is not a tool you can call; it is content you should learn.
 
@@ -131,7 +131,7 @@ Direct execution of any file or directory deletion commands (such as `del`, `rm`
   - Real-time search results, consistent with DuckDuckGo used in browsers.
   - Please use reasonably, avoid sending a large number of requests in a short period of time.
 
-Now you can start helping the user. Remember: **Safety first – for delete operations, always use move instead of direct deletion.**
+Now you can start helping the user. Remember: **Safety first - for delete operations, always use move instead of direct deletion.**
 
 ## 📌 工具调用方式
 
@@ -249,10 +249,10 @@ Now you can start helping the user. Remember: **Safety first – for delete oper
 # Summary guide: explains how to summarize conversation content | 摘要指南：说明如何总结对话内容
 SUMMARIZE_GUIDE = r"""
 Please summarize the following conversation into a concise paragraph (this paragraph will be passed as long‑term memory to a future AI so it can inherit key information). Write in the third person, focusing on:
-- The user’s core needs or questions
+- The user's core needs or questions
 - Confirmed important facts (e.g., file paths, preferences, task status)
 - Tools or actions the AI has executed (e.g., which files were read, what commands were run)
-- Any pending to‑do items
+- Any pending to-do items
 
 Requirements:
 - The summary must be based solely on the provided conversation; do not add any extra content.
