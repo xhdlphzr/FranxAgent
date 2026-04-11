@@ -1,3 +1,11 @@
+<!--
+Copyright (C) 2026 xhdlphzr
+This file is part of FranxAI.
+FranxAI is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+FranxAI is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+You should have received a copy of the GNU General Public License along with FranxAI.  If not, see <https://www.gnu.org/licenses/>.
+-->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -156,6 +164,12 @@
             margin-top: 5px;
             text-align: left;
         }
+
+        /* Loading state for login button | 登录按钮加载状态 */
+        button.loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -203,40 +217,7 @@
             return data.public_key;
         }
 
-        // Perform the actual login request | 执行实际的登录请求
-        async function performLogin() {
-            const password = passwordInput.value.trim();
-            try {
-                const publicKeyPem = await fetchPublicKey();
-                const encrypt = new JSEncrypt();
-                encrypt.setKey(publicKeyPem);
-                const encrypted = encrypt.encrypt(password);
-                if (!encrypted) {
-                    throw new Error('Encryption failed | 加密失败');
-                }
-
-                const resp = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password: encrypted })
-                });
-                const result = await resp.json();
-                if (resp.ok) {
-                    // Store token temporarily (will be consumed by index.html) | 临时存储 token（将被 index.html 消费）
-                    localStorage.setItem('franxai_temp_token', result.token);
-                    window.location.href = '/';
-                } else {
-                    errorMsg.textContent = result.error || 'Login failed | 登录失败';
-                    overlay.classList.remove('active');
-                }
-            } catch (err) {
-                errorMsg.textContent = 'Network error | 网络错误';
-                console.error(err);
-                overlay.classList.remove('active');
-            }
-        }
-
-        // Validate checkbox before login animation | 登录前验证勾选框
+        // Validate checkbox before login | 登录前验证勾选框
         function validateAgreement() {
             if (!agreeCheckbox.checked) {
                 // Shake the agreement container and show error | 抖动勾选框容器并显示错误
@@ -252,38 +233,8 @@
             }
         }
 
-        // Login with animation | 带动画的登录入口
-        async function login() {
-            // First validate agreement | 首先验证同意勾选
-            if (!validateAgreement()) {
-                return;
-            }
-
-            // Check if password has been set (avoid animation if not) | 检查是否已设置密码（若未设置则跳过动画）
-            try {
-                const checkResp = await fetch('/api/check-auth');
-                const checkData = await checkResp.json();
-                if (!checkData.password_set) {
-                    // Password not set: shake the register link and show error message | 密码未设置：抖动注册链接并显示错误信息
-                    if (registerLink) {
-                        registerLink.classList.add('shake');
-                        setTimeout(() => registerLink.classList.remove('shake'), 300);
-                    }
-                    errorMsg.textContent = 'Password not set. Please register first. | 密码未设置，请先注册。';
-                    return; // Do not proceed to animation or login | 不执行后续动画和登录
-                }
-            } catch (err) {
-                // If the check fails, continue anyway (assume password set) | 如果检查失败，仍然继续（假设密码已设置）
-                console.error('Failed to check password status', err);
-            }
-
-            const password = passwordInput.value.trim();
-            if (!password) {
-                errorMsg.textContent = 'Please enter password | 请输入密码';
-                return;
-            }
-
-            // Start animation: button expands to full screen | 开始动画：按钮放大至全屏
+        // Play the expand animation on success | 登录成功后播放放大动画
+        function playExpandAnimation(callback) {
             const btn = loginBtn;
             const rect = btn.getBoundingClientRect();
             const clone = btn.cloneNode(true);
@@ -310,11 +261,82 @@
 
             overlay.classList.add('active');
 
-            // Wait for animation to finish, then perform actual login | 等待动画完成，再执行登录
+            // Wait for animation to finish, then execute callback | 等待动画完成，再执行回调
             setTimeout(() => {
                 clone.remove();
-                performLogin();
+                if (callback) callback();
             }, 300);
+        }
+
+        // Login: verify first, animate only on success | 登录：先验证，仅成功时播放动画
+        async function login() {
+            // First validate agreement | 首先验证同意勾选
+            if (!validateAgreement()) {
+                return;
+            }
+
+            // Check if password has been set (avoid animation if not) | 检查是否已设置密码（若未设置则跳过动画）
+            try {
+                const checkResp = await fetch('/api/check-auth');
+                const checkData = await checkResp.json();
+                if (!checkData.password_set) {
+                    // Password not set: shake the register link and show error message | 密码未设置：抖动注册链接并显示错误信息
+                    if (registerLink) {
+                        registerLink.classList.add('shake');
+                        setTimeout(() => registerLink.classList.remove('shake'), 300);
+                    }
+                    errorMsg.textContent = 'Password not set. Please register first. | 密码未设置，请先注册。';
+                    return; // Do not proceed to login | 不执行后续登录
+                }
+            } catch (err) {
+                // If the check fails, continue anyway (assume password set) | 如果检查失败，仍然继续（假设密码已设置）
+                console.error('Failed to check password status', err);
+            }
+
+            const password = passwordInput.value.trim();
+            if (!password) {
+                errorMsg.textContent = 'Please enter password | 请输入密码';
+                return;
+            }
+
+            // Disable button to prevent double-click | 禁用按钮防止重复点击
+            loginBtn.classList.add('loading');
+            errorMsg.textContent = '';
+
+            // Perform login request first | 先执行登录请求
+            try {
+                const publicKeyPem = await fetchPublicKey();
+                const encrypt = new JSEncrypt();
+                encrypt.setKey(publicKeyPem);
+                const encrypted = encrypt.encrypt(password);
+                if (!encrypted) {
+                    throw new Error('Encryption failed | 加密失败');
+                }
+
+                const resp = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: encrypted })
+                });
+                const result = await resp.json();
+
+                if (resp.ok) {
+                    // Store token temporarily (will be consumed by index.html) | 临时存储 token（将被 index.html 消费）
+                    localStorage.setItem('franxai_temp_token', result.token);
+                    // Login succeeded: play animation then redirect | 登录成功：播放动画后跳转
+                    playExpandAnimation(() => {
+                        window.location.href = '/';
+                    });
+                } else {
+                    // Login failed: show error, no animation | 登录失败：显示错误，不播放动画
+                    errorMsg.textContent = result.error || 'Login failed | 登录失败';
+                    loginBtn.classList.remove('loading');
+                }
+            } catch (err) {
+                errorMsg.textContent = 'Network error | 网络错误';
+                console.error(err);
+                loginBtn.classList.remove('loading');
+            }
         }
 
         // Event listeners | 事件监听

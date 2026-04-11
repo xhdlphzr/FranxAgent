@@ -535,7 +535,7 @@ def chat():
         if full_response:
             try:
                 # Convert Markdown to HTML using markdown library | 使用 markdown 库将 Markdown 转为 HTML
-                html = markdown.markdown(full_response)
+                html = markdown.markdown(full_response, extensions=['tables', 'fenced_code'])
                 yield f"data: {json.dumps({'type': 'html', 'html': html})}\n\n"
             except Exception as e:
                 # Rendering failed, send error but don't interrupt stream | 渲染失败，发送错误但不中断流

@@ -163,7 +163,11 @@
 - 修复了部分回复内容保存问题。
 
 ## [v4.8.1](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.8.1)
-- 更改了 `README.md`
+- 更改了 `README.md`。
 
 ## [v4.8.2](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.8.2)
-- 更改了 `src/agent.py` 内的 `USER_GUIDE`
+- 更改了 `src/agent.py` 内的 `USER_GUIDE`。
+
+## [v4.8.3](https://github.com/xhdlphzr/FranxAI/releases/tag/v4.8.3)
+- 修复了 `src/templates/index.html` 中的数学公式渲染问题。
+- 修复动画优先bug。

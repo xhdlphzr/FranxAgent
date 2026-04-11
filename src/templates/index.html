@@ -129,7 +129,7 @@ You should have received a copy of the GNU General Public License along with Fra
             align-self: flex-start;
             border-bottom-left-radius: 0.25rem;
             color: #0f172a;
-            display: block;          /* 改为块级，让小球跟随文本流 */
+            display: block;
         }
         .typing-dot {
             display: inline-block;
@@ -164,6 +164,34 @@ You should have received a copy of the GNU General Public License along with Fra
             background: #fff7e6;
             padding: 0.5rem;
             border-radius: 0.5rem;
+        }
+
+        /* Table styles for Markdown tables | Markdown 表格样式 */
+        .message table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 0.5rem 0;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            display: block;
+        }
+        .message th,
+        .message td {
+            border: 1px solid #ddd;
+            padding: 6px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+        .message th {
+            background-color: #f1f5f9;
+            font-weight: 600;
+        }
+        @media (max-width: 640px) {
+            .message table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
         }
 
         @keyframes breathe {
@@ -454,6 +482,91 @@ You should have received a copy of the GNU General Public License along with Fra
             overflow-y: auto;
         }
 
+        /* Knowledge panel Markdown styles | 知识面板 Markdown 样式 */
+        .knowledge-item-full h1,
+        .knowledge-item-full h2,
+        .knowledge-item-full h3,
+        .knowledge-item-full h4,
+        .knowledge-item-full h5,
+        .knowledge-item-full h6 {
+            margin: 0.5rem 0 0.3rem;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+        .knowledge-item-full h1 { font-size: 1.15rem; }
+        .knowledge-item-full h2 { font-size: 1.05rem; }
+        .knowledge-item-full h3 { font-size: 1rem; }
+        .knowledge-item-full p {
+            margin: 0.35rem 0;
+            line-height: 1.5;
+        }
+        .knowledge-item-full ul,
+        .knowledge-item-full ol {
+            margin: 0.35rem 0;
+            padding-left: 1.5rem;
+        }
+        .knowledge-item-full li {
+            margin: 0.15rem 0;
+        }
+        .knowledge-item-full code {
+            background: #eef2f6;
+            padding: 0.15rem 0.35rem;
+            border-radius: 0.25rem;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.82em;
+        }
+        .knowledge-item-full pre {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 0.6rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 0.5rem 0;
+        }
+        .knowledge-item-full pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+            font-size: 0.8rem;
+        }
+        .knowledge-item-full blockquote {
+            border-left: 3px solid #94a3b8;
+            margin: 0.5rem 0;
+            padding: 0.25rem 0.75rem;
+            color: #475569;
+            background: #f1f5f9;
+            border-radius: 0 0.25rem 0.25rem 0;
+        }
+        .knowledge-item-full table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 0.5rem 0;
+            font-size: 0.85rem;
+        }
+        .knowledge-item-full th,
+        .knowledge-item-full td {
+            border: 1px solid #cbd5e1;
+            padding: 5px 8px;
+            text-align: left;
+        }
+        .knowledge-item-full th {
+            background: #f1f5f9;
+            font-weight: 600;
+        }
+        .knowledge-item-full hr {
+            border: none;
+            border-top: 1px solid #e2e8f0;
+            margin: 0.5rem 0;
+        }
+        .knowledge-item-full img {
+            max-width: 100%;
+            border-radius: 0.5rem;
+        }
+        .knowledge-item-full a {
+            color: #2563eb;
+            text-decoration: underline;
+        }
+
         /* Mobile optimization | 移动端优化 */
         @media (max-width: 640px) {
             .message {
@@ -525,7 +638,7 @@ You should have received a copy of the GNU General Public License along with Fra
                     <label>Model Name | 模型名称</label>
                     <input type="text" id="model">
                     <label>Temperature | 温度</label>
-                    <input type="number" id="temperature" step="0.1" min="0" max="1" value="0.8">
+                    <input type="number" id="temperature" step="0.1" min="0" max="2" value="0.8">
                     <label>Deep Thinking | 深度思考</label>
                     <input type="checkbox" id="thinking">
                     <label>Max Iterations | 最大迭代次数</label>
@@ -674,7 +787,8 @@ You should have received a copy of the GNU General Public License along with Fra
                 if (msg.role === 'user') {
                     addMessage(msg.role, msg.content, false, '', true);
                 } else {
-                    addMessage(msg.role, msg.content, false, '', false);
+                    // Assistant messages: enable Markdown parsing | 助手消息：启用 Markdown 解析
+                    addMessage(msg.role, msg.content, false, '', true);
                 }
             });
         }
@@ -821,16 +935,38 @@ You should have received a copy of the GNU General Public License along with Fra
 
             const itemDiv = document.createElement('div');
             itemDiv.className = 'knowledge-item';
-            itemDiv.innerHTML = `
-                <div class="knowledge-item-summary">📄 ${escapeHtml(summary)} <span style="font-size:0.7rem;">▼</span></div>
-                <div class="knowledge-item-full">${escapeHtml(text)}</div>
-            `;
-            const summaryDiv = itemDiv.querySelector('.knowledge-item-summary');
-            const fullDiv = itemDiv.querySelector('.knowledge-item-full');
+
+            // Summary: keep as plain text | 摘要部分：保持纯文本
+            const summaryDiv = document.createElement('div');
+            summaryDiv.className = 'knowledge-item-summary';
+            summaryDiv.innerHTML = `📄 ${escapeHtml(summary)} <span style="font-size:0.7rem;">▼</span>`;
+
+            // Full content: use Markdown + KaTeX rendering | 全文部分：使用 Markdown + KaTeX 渲染
+            const fullDiv = document.createElement('div');
+            fullDiv.className = 'knowledge-item-full';
+            try {
+                const html = marked.parse(text);
+                fullDiv.innerHTML = html;
+                if (window.renderMathInElement) {
+                    window.renderMathInElement(fullDiv, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false}
+                        ]
+                    });
+                }
+            } catch (e) {
+                // Markdown parsing failed, fallback to plain text | Markdown 解析失败时回退到纯文本
+                fullDiv.textContent = text;
+            }
+
             summaryDiv.addEventListener('click', (e) => {
                 e.stopPropagation();
                 fullDiv.classList.toggle('show');
             });
+
+            itemDiv.appendChild(summaryDiv);
+            itemDiv.appendChild(fullDiv);
             inner.appendChild(itemDiv);
         });
 
@@ -1197,7 +1333,8 @@ You should have received a copy of the GNU General Public License along with Fra
                     if (msg.role === 'user') {
                         addMessage('user', msg.content, false, '', true);
                     } else if (msg.role === 'assistant') {
-                        addMessage('assistant', msg.content, false, '', false);
+                        // Assistant messages: enable Markdown parsing | 助手消息：启用 Markdown 解析
+                        addMessage('assistant', msg.content, false, '', true);
                     }
                     // ignore system and tool | 忽略 system 和 tool
                 });
