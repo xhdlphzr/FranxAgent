@@ -167,13 +167,17 @@ You should have received a copy of the GNU General Public License along with Fra
         }
 
         /* Table styles for Markdown tables | Markdown 表格样式 */
+        /* Table scroll wrapper: enables horizontal scrolling without breaking table layout | 表格滚动容器：实现横向滚动而不破坏表格布局 */
+        .table-scroll-wrapper {
+            overflow-x: auto;
+            margin: 0.5rem 0;
+            -webkit-overflow-scrolling: touch;
+        }
         .message table {
             border-collapse: collapse;
             width: 100%;
-            margin: 0.5rem 0;
             font-size: 0.9rem;
-            overflow-x: auto;
-            display: block;
+            white-space: normal;
         }
         .message th,
         .message td {
@@ -185,13 +189,6 @@ You should have received a copy of the GNU General Public License along with Fra
         .message th {
             background-color: #f1f5f9;
             font-weight: 600;
-        }
-        @media (max-width: 640px) {
-            .message table {
-                display: block;
-                overflow-x: auto;
-                white-space: nowrap;
-            }
         }
 
         @keyframes breathe {
@@ -288,7 +285,8 @@ You should have received a copy of the GNU General Public License along with Fra
         }
         #console-output {
             padding: 0.75rem;
-            font-family: 'SF Mono', monospace;
+            /* CJK-compatible monospace font stack | 兼容中文的等宽字体栈 */
+            font-family: 'SF Mono', 'Menlo', 'Consolas', 'Noto Sans Mono CJK SC', 'Microsoft YaHei', 'PingFang SC', monospace;
             font-size: 0.75rem;
             background: #0f172a;
             color: #e2e8f0;
@@ -542,6 +540,7 @@ You should have received a copy of the GNU General Public License along with Fra
             width: 100%;
             margin: 0.5rem 0;
             font-size: 0.85rem;
+            white-space: normal;
         }
         .knowledge-item-full th,
         .knowledge-item-full td {
@@ -737,6 +736,49 @@ You should have received a copy of the GNU General Public License along with Fra
         });
     }
 
+    // Helper: sanitize HTML entities before Markdown parsing (XSS prevention) | 辅助函数：Markdown 解析前转义 HTML 实体（防止 XSS）
+    function sanitizeForMarkdown(str) {
+        return str.replace(/&/g, '&amp;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;')
+                  .replace(/"/g, '&quot;')
+                  .replace(/'/g, '&#39;');
+    }
+
+    // Helper: wrap tables in scrollable containers for proper layout | 辅助函数：将表格包裹在可滚动容器中以修正布局
+    function wrapTables(container) {
+        container.querySelectorAll('table').forEach(table => {
+            // Skip if already wrapped | 跳过已包裹的表格
+            if (table.parentElement.classList.contains('table-scroll-wrapper')) return;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'table-scroll-wrapper';
+            table.parentNode.insertBefore(wrapper, table);
+            wrapper.appendChild(table);
+        });
+    }
+
+    // Helper: render Markdown content into a div with breathing dot | 辅助函数：将 Markdown 内容渲染到 div 并追加呼吸小球
+    function renderStreamingMarkdown(msgDiv, rawText) {
+        msgDiv._rawText = rawText;
+        try {
+            const html = marked.parse(rawText);
+            msgDiv.innerHTML = html;
+        } catch(e) {
+            msgDiv.textContent = rawText;
+        }
+        // Insert dot into the last block element's end so it stays inline | 将小球插入最后一个块元素末尾，使其保持行内
+        const dot = document.createElement('span');
+        dot.className = 'typing-dot';
+        const lastChild = msgDiv.lastElementChild;
+        if (lastChild) {
+            lastChild.appendChild(dot);
+        } else {
+            msgDiv.appendChild(dot);
+        }
+        wrapTables(msgDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
     // Page sliding switch | 页面滑动切换
     let currentPage = 'chat';
     function switchPage(page) {
@@ -764,8 +806,10 @@ You should have received a copy of the GNU General Public License along with Fra
             const role = msgDiv.classList.contains('user') ? 'user' : 'assistant';
             if (!msgDiv.classList.contains('temp')) {
                 if (role === 'assistant') {
-                    // if _textNode exists, use its content, otherwise use the whole textContent (excluding breathing dot) | 提取文本：如果有 _textNode 则取其内容，否则用整体 textContent（排除呼吸小球）
-                    if (msgDiv._textNode) {
+                    // Prefer _rawText (streaming Markdown source) over textContent | 优先使用 _rawText（流式 Markdown 原文），其次用 textContent
+                    if (msgDiv._rawText) {
+                        messages.push({ role, content: msgDiv._rawText });
+                    } else if (msgDiv._textNode) {
                         messages.push({ role, content: msgDiv._textNode.textContent });
                     } else {
                         // if _textNode does not exist, use the whole textContent (including breathing dot) | 对于已经完成的消息（没有 _textNode），直接取 textContent 即可（小球已被移除）
@@ -802,16 +846,20 @@ You should have received a copy of the GNU General Public License along with Fra
         if (temporary) msgDiv.classList.add('temp');
 
         if (role === 'assistant' && temporary) {
-            // Use text node + inline dot to follow the end of the text content | 使用文本节点 + 内联小球，使小球跟随文本末尾
-            const textNode = document.createTextNode(content);
-            const dot = document.createElement('span');
-            dot.className = 'typing-dot';
-            msgDiv.appendChild(textNode);
-            msgDiv.appendChild(dot);
-            msgDiv._textNode = textNode;   // Store the reference of the text node | 存储文本节点引用
+            // Real-time Markdown rendering with breathing dot | 实时 Markdown 渲染 + 呼吸小球
+            renderStreamingMarkdown(msgDiv, content);
         } else if (parseMarkdown && !temporary) {
-            const html = marked.parse(content);
-            msgDiv.innerHTML = html;
+            if (role === 'user') {
+                // User messages: sanitize first to prevent XSS, then parse Markdown | 用户消息：先转义防 XSS，再解析 Markdown
+                const safeContent = sanitizeForMarkdown(content);
+                const html = marked.parse(safeContent);
+                msgDiv.innerHTML = html;
+            } else {
+                // Assistant messages: content from trusted backend, parse directly | 助手消息：内容来自可信后端，直接解析
+                const html = marked.parse(content);
+                msgDiv.innerHTML = html;
+            }
+            wrapTables(msgDiv);
             if (window.renderMathInElement) {
                 window.renderMathInElement(msgDiv, { delimiters: [{left: '$$', right: '$$', display: true},{left: '$', right: '$', display: false}] });
             }
@@ -827,6 +875,7 @@ You should have received a copy of the GNU General Public License along with Fra
 
     // Update message content (for assistant temporary messages, update the text node) | 更新助手临时消息的文本节点内容
     function updateMessage(msgDiv, content) {
+        msgDiv._rawText = content;
         if (msgDiv._textNode) {
             msgDiv._textNode.textContent = content;
         } else {
@@ -876,9 +925,16 @@ You should have received a copy of the GNU General Public License along with Fra
                 })
             }).catch(e => console.error('Failed to save partial response', e));
 
-            // Update the temporary assistant message to include the partial content and a stop marker | 更新临时助手消息，包含部分内容及停止标记
+            // Update the temporary assistant message with Markdown rendering | 用 Markdown 渲染更新临时助手消息
             if (currentAssistantMsgDiv) {
-                updateMessage(currentAssistantMsgDiv, currentPartialText + '\n\n(Stopped generating) | （已停止生成）');
+                const stopText = currentPartialText + '\n\n(Stopped generating) | （已停止生成）';
+                currentAssistantMsgDiv._rawText = stopText;
+                try {
+                    currentAssistantMsgDiv.innerHTML = marked.parse(stopText);
+                    wrapTables(currentAssistantMsgDiv);
+                } catch(e) {
+                    currentAssistantMsgDiv.textContent = stopText;
+                }
                 removeTypingDot(currentAssistantMsgDiv);
                 // Mark as not temporary so it will be saved to localStorage | 标记为非临时，以便保存到本地存储
                 currentAssistantMsgDiv.classList.remove('temp');
@@ -947,6 +1003,7 @@ You should have received a copy of the GNU General Public License along with Fra
             try {
                 const html = marked.parse(text);
                 fullDiv.innerHTML = html;
+                wrapTables(fullDiv);
                 if (window.renderMathInElement) {
                     window.renderMathInElement(fullDiv, {
                         delimiters: [
@@ -1011,7 +1068,7 @@ You should have received a copy of the GNU General Public License along with Fra
         consoleOutput.textContent = '';
         // Do NOT auto-open console | 不自动打开控制台
 
-        let fullText = '', isFirstChunk = true;
+        let fullText = '';
         let receivedHtml = false;   // Flag to know if final HTML arrived | 标记是否收到最终HTML
 
         try {
@@ -1034,12 +1091,9 @@ You should have received a copy of the GNU General Public License along with Fra
                             if (data.type === 'content') {
                                 fullText += data.text;
                                 currentPartialText = fullText;   // Update partial text | 更新部分文本
-                                if (isFirstChunk) {
-                                    updateMessage(assistantMsgDiv, fullText);
-                                    isFirstChunk = false;
-                                } else {
-                                    updateMessage(assistantMsgDiv, fullText);
-                                }
+                                // Real-time Markdown rendering during streaming | 流式输出时实时 Markdown 渲染
+                                renderStreamingMarkdown(assistantMsgDiv, fullText);
+                                assistantMsgDiv.classList.remove('temp');
                             } else if (data.type === 'log') {
                                 consoleOutput.textContent += data.text;
                                 consoleOutput.scrollTop = consoleOutput.scrollHeight;
@@ -1048,6 +1102,7 @@ You should have received a copy of the GNU General Public License along with Fra
                                 // Final HTML rendering - remove dot and set HTML content | 最终HTML渲染 -移除点并设置HTML内容
                                 removeTypingDot(assistantMsgDiv);
                                 assistantMsgDiv.innerHTML = data.html;
+                                wrapTables(assistantMsgDiv);
                                 assistantMsgDiv.classList.remove('temp');
                                 if (window.renderMathInElement) {
                                     window.renderMathInElement(assistantMsgDiv, {
@@ -1075,15 +1130,26 @@ You should have received a copy of the GNU General Public License along with Fra
                 }
             }
 
-            // If no html event was received (e.g., pure text response), still render knowledge panel if any | 如果没有收到HTML事件（例如纯文本响应），仍显示知识面板
-            if (!receivedHtml && currentKnowledgeList.length > 0) {
+            // If no html event was received, finalize frontend-rendered Markdown | 如果未收到 HTML 事件，完成前端 Markdown 渲染
+            if (!receivedHtml) {
                 if (assistantMsgDiv.querySelector('.typing-dot')) {
                     removeTypingDot(assistantMsgDiv);
                 }
-                currentKnowledgePanel = renderKnowledgePanel(chatMessages, currentKnowledgeList, assistantMsgDiv);
+                // Final KaTeX render for streamed Markdown content | 对流式渲染的 Markdown 内容进行最终 KaTeX 渲染
+                if (window.renderMathInElement) {
+                    window.renderMathInElement(assistantMsgDiv, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false}
+                        ]
+                    });
+                }
+                if (currentKnowledgeList.length > 0) {
+                    currentKnowledgePanel = renderKnowledgePanel(chatMessages, currentKnowledgeList, assistantMsgDiv);
+                }
                 saveMessagesToLocalStorage();
             } else if (assistantMsgDiv.querySelector('.typing-dot')) {
-                // No knowledge, just remove dot and save messages | 没有知识，仅移除点并保存消息
+                // Safety: remove dot if still present after html event | 安全兜底：html 事件后仍有小球则移除
                 removeTypingDot(assistantMsgDiv);
                 saveMessagesToLocalStorage();
             }
