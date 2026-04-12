@@ -1,6 +1,6 @@
 # 贡献指南（skills 分支）
 
-感谢你对 FranxAI Skills 的兴趣！我们欢迎任何实用的技能文件，帮助 AI 更好地完成特定领域任务。
+感谢你对 FranxAgent Skills 的兴趣！我们欢迎任何实用的技能文件，帮助 AI 更好地完成特定领域任务。
 
 ## 许可证
 
@@ -10,12 +10,12 @@
 ## 如何贡献
 
 ### 1. Fork 仓库
-访问 [FranxAI 仓库](https://github.com/xhdlphzr/FranxAI)，切换到 `skills` 分支（或直接 Fork 整个仓库）。
+访问 [FranxAgent 仓库](https://github.com/xhdlphzr/FranxAgent)，切换到 `skills` 分支（或直接 Fork 整个仓库）。
 
 ### 2. 克隆你的 Fork 到本地
 ```bash
-git clone https://github.com/你的用户名/FranxAI.git
-cd FranxAI
+git clone https://github.com/你的用户名/FranxAgent.git
+cd FranxAgent
 git checkout skills
 ```
 
@@ -44,7 +44,7 @@ See the file COPYING for copying conditions.
 ```
 
 ### 5. 本地测试（可选）
-你可以将文件复制到 FranxAI 主项目的 `skills/` 文件夹，启动主程序，观察是否被正常加载（控制台会打印已加载的技能列表）。
+你可以将文件复制到 FranxAgent 主项目的 `skills/` 文件夹，启动主程序，观察是否被正常加载（控制台会打印已加载的技能列表）。
 
 ### 6. 提交改动
 ```bash
@@ -80,4 +80,4 @@ Co-authored-by: 伙伴用户名 <伙伴邮箱>
 - 改进现有技能：直接修改文件并提交 PR。
 
 ## 感谢
-每一份技能都让 FranxAI 更强大。期待你的贡献！
+每一份技能都让 FranxAgent 更强大。期待你的贡献！

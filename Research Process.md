@@ -1,5 +1,5 @@
 <!--
-This is part of FranxAI
+This is part of FranxAgent
 Copyright (C) 2026 xhdlphzr
 See the file COPYING for copying conditions.
 -->

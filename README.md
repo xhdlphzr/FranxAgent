@@ -1,12 +1,12 @@
-# FranxAI Skills 仓库
+# FranxAgent Skills 仓库
 
-本仓库（分支）存放 FranxAI 的技能文件（Markdown 格式），用于为 AI 注入领域知识、工作流程、行为规则等。
+本仓库（分支）存放 FranxAgent 的技能文件（Markdown 格式），用于为 AI 注入领域知识、工作流程、行为规则等。
 
 ## 如何使用
 
 - 将本分支克隆到本地，或直接下载单个 `.md` 文件。
-- 将技能文件放入 FranxAI 主项目的 `skills/` 文件夹中。
-- 启动 FranxAI，系统会自动加载所有技能文件并合并到系统提示中。
+- 将技能文件放入 FranxAgent 主项目的 `skills/` 文件夹中。
+- 启动 FranxAgent，系统会自动加载所有技能文件并合并到系统提示中。
 
 ## 许可证
 
