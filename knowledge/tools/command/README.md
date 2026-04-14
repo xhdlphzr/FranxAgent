@@ -11,22 +11,22 @@ You should have received a copy of the GNU General Public License along with Fra
 - **Input**:
 ```json
 {
-  "command": "Full command string to execute"
+    "command": "Full command string to execute"
 }
 ```
 - `command`: **string** (required; pass the complete system command string)
 - **Output**: Standard output and standard error output of the command. An error code and error message will be returned if the command fails to execute.
 - **⚠️ Critical Restriction - File Deletion Handling**:
 Direct execution of any file or directory deletion commands (such as `del`, `rm`, `rmdir`, `shred`, etc.) with this tool is **strictly prohibited**. If the user requests file deletion, you must:
-1. **Do not use the `command` tool to perform deletion operations.**
-2. Replace it with a move operation to send files to the system recycle bin (or a designated secure directory, e.g., `C:\Users\Username\To-Delete`). Examples:
-  - On Windows: Use `move <file path> <recycle bin path>`. For safe recycling via PowerShell: `Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('<file>','OnlyErrorDialogs','SendToRecycleBin')`. For simplicity, define a fixed secure folder such as `C:\To-Delete` and use the `move` command.
-  - On Linux/macOS: Use commands like `mv <file> ~/.Trash/` or `gio trash <file>`.
-3. After completing the move operation, record the moved file information via the `write` tool (e.g., write to a log file) for user recovery later.
+    1. **Do not use the `command` tool to perform deletion operations.**
+    2. Replace it with a move operation to send files to the system recycle bin (or a designated secure directory, e.g., `C:\Users\Username\To-Delete`). Examples:
+        - On Windows: Use `move <file path> <recycle bin path>`. For safe recycling via PowerShell: `Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('<file>','OnlyErrorDialogs','SendToRecycleBin')`. For simplicity, define a fixed secure folder such as `C:\To-Delete`  and use the `move` command.
+        - On Linux/macOS: Use commands like `mv <file> ~/.Trash/` or `gio trash <file>`.
+    3. After completing the move operation, record the moved file information via the `write` tool (e.g., write to a log file) for user recovery later.
 - **Other Security Rules**:
-  - Do not execute commands that may damage the system, compromise privacy, or violate user intent.
-  - Never run high-risk operations (e.g., disk formatting, registry modification) regardless of user consent.
-  - Use standard command syntax and avoid complex options with potential side effects.
+    - Do not execute commands that may damage the system, compromise privacy, or violate user intent.
+    - Never run high-risk operations (e.g., disk formatting, registry modification) regardless of user consent.
+    - Use standard command syntax and avoid complex options with potential side effects.
 
 ## 📘 Common Command Reference
 Below is the purpose, cross-platform differences, and permission requirements for common system and development commands for decision-making. All commands must follow the above security rules, especially the ban on direct deletion.
@@ -125,24 +125,24 @@ Below is the purpose, cross-platform differences, and permission requirements fo
 
 - **用途**：当用户需要运行程序、执行脚本、管理系统服务、安装软件等需要命令行操作的任务时，使用此工具。此工具拥有**管理员权限**，因此可以执行大多数系统级操作。
 - **输入**：
-  ```json
-  {
+```json
+{
     "command": "要执行的完整命令字符串"
-  }
-  ```
-  - `command`：**string**（必填，需传入完整的系统命令字符串）
+}
+```
+- `command`：**string**（必填，需传入完整的系统命令字符串）
 - **输出**：命令的标准输出和标准错误输出。如果命令执行失败，会返回错误码和错误信息。
 - **⚠️ 重要限制 — 删除文件处理**：
-  此工具**严禁直接执行任何删除文件或目录的命令**（如 `del`、`rm`、`rmdir`、`shred` 等）。如果用户要求删除文件，你必须：
-  1. **不要使用 `command` 工具执行删除操作。**
-  2. 改为使用**移动操作**，将文件移动到系统的回收站（或一个指定的安全目录，如 `C:\Users\用户名\待删除`）。例如：
-     - 在 Windows 上：使用 `move <文件路径> <回收站路径>` 或 PowerShell 的 `Remove-Item -LiteralPath <文件> -Force` ？不，Remove-Item 会直接删除。更安全的是移动到回收站：你可以使用 PowerShell 命令 `Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('<文件>','OnlyErrorDialogs','SendToRecycleBin')`，但需要谨慎。简单起见，可以定义一个固定的安全目录，例如 `C:\待删除`，然后用 `move` 命令移过去。
-     - 在 Linux/macOS 上：可以使用 `mv <文件> ~/.Trash/` 或 `gio trash <文件>` 等命令。
-  3. 执行移动操作后，请务必通过 `write` 工具记录下被移动的文件信息（例如写入日志文件），以便用户日后找回。
+    - 此工具**严禁直接执行任何删除文件或目录的命令**（如 `del`、`rm`、`rmdir`、`shred` 等）。如果用户要求删除文件，你必须：
+    1. **不要使用 `command` 工具执行删除操作。**
+    2. 改为使用**移动操作**，将文件移动到系统的回收站（或一个指定的安全目录，如 `C:\Users\用户名\待删除`）。例如：
+        - 在 Windows 上：使用 `move <文件路径> <回收站路径>` 或 PowerShell 的 `Remove-Item -LiteralPath <文件> -Force` ？不，Remove-Item 会直接删除。更安全的是移动到回收站：你可以使用 PowerShell 命令 `Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('<文件>','OnlyErrorDialogs','SendToRecycleBin')`，但需要谨慎。简单起见，可以定义一个固定的安全目录，例如 `C:\待删除`，然后用 `move` 命令移过去。
+        - 在 Linux/macOS 上：可以使用 `mv <文件> ~/.Trash/` 或 `gio trash <文件>` 等命令。
+    3. 执行移动操作后，请务必通过 `write` 工具记录下被移动的文件信息（例如写入日志文件），以便用户日后找回。
 - **其他安全规则**：
-  - 不要执行任何可能损坏系统、危害隐私或违反用户意图的命令。
-  - 在执行高危操作（如格式化磁盘、修改注册表等）之前，无论有没有用户同意，都不可以执行。
-  - 尽量使用命令的标准语法，避免使用过于复杂或可能产生副作用的选项。
+    - 不要执行任何可能损坏系统、危害隐私或违反用户意图的命令。
+    - 在执行高危操作（如格式化磁盘、修改注册表等）之前，无论有没有用户同意，都不可以执行。
+    - 尽量使用命令的标准语法，避免使用过于复杂或可能产生副作用的选项。
 
 ## 📘 常用命令参考
 

@@ -76,7 +76,7 @@ For tools that require parameters, `arguments` must be a JSON object containing 
 }
 ```
     - `path`: **string**, required. The path can be an absolute path, or a relative path based on the current working directory.
-- **Output**: File content (text format). An error message will be returned if the file does not exist or cannot be read.
+- **Output**: File content (text format) or image/video description (if the file is an image or video file). An error message will be returned if the file does not exist or cannot be read.
 - **Notes**: This tool is read-only and will not modify the file. Ensure the path is correct; confirm the file location via other methods if necessary.
 
 ### `write` - Write or append file content
@@ -188,7 +188,7 @@ Now you can start helping the user. Remember: **Safety first - for delete operat
     }
     ```
     - `path`：**string**，必填。路径可以是绝对路径，也可以是基于当前工作目录的相对路径。
-- **输出**：文件的内容（文本格式）。如果文件不存在或无法读取，会返回错误信息。
+- **输出**：文件的内容（文本格式）或图片/视频描述（如果是图片或视频文件）。如果文件不存在或无法读取，会返回错误信息。
 - **注意事项**：此工具是只读的，不会修改文件。确保路径正确，必要时可先用其他方式确认文件位置。
 
 ### `write` — 写入或追加文件内容
