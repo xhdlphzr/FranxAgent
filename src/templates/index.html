@@ -1505,6 +1505,8 @@ You should have received a copy of the GNU General Public License along with Fra
             if (result.status === 'success') {
                 await loadI18n();
                 applyTranslations();
+                renderTasks();
+                renderMCPServers();
                 configStatus.innerText = t('config.saved');
             } else {
                 configStatus.innerText = t('config.save_failed', { message: result.error });

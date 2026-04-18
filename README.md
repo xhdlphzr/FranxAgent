@@ -1,6 +1,6 @@
 # FranxAgent 🤖
 
-**English** | [中文](docs/zh/README_zh.md)
+**English** | [中文](docs/zh/README.md)
 
 **Let AI work for you like a partner – simple, secure, low cost.**  
 **Now you can control the AI on your computer directly from your phone – no public IP, no port forwarding, one‑click secure remote access.**
