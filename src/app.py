@@ -5,8 +5,8 @@
 # You should have received a copy of the GNU General Public License along with FranxAgent.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Flask Web Application Module | Flask Web应用模块
-Provides web interface and API endpoints, supporting real-time chat, configuration management, and scheduled task execution | 提供Web界面和API接口，支持实时聊天、配置管理和定时任务执行
+Flask Web Application Module
+Provides web interface and API endpoints, supporting real-time chat, configuration management, and scheduled task execution
 """
 
 import os
@@ -34,45 +34,45 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from knowledge import search, add_conversation
 
-# Create Flask application instance | 创建Flask应用实例
+# Create Flask application instance
 app = Flask(__name__)
 
-# Startup timestamp for session validation | 启动时的时间戳，用于会话验证
+# Startup timestamp for session validation
 STARTUP_ID = str(int(time.time()))
 
 def load_config():
     """
-    Load configuration file | 加载配置文件
+    Load configuration file
 
     Returns:
-        config dict | 配置字典
+        config dict
     """
     with open("./config.json", 'r', encoding='utf-8') as f:
         return json.load(f)
 
 def save_config(config):
     """
-    Save configuration file | 保存配置文件
+    Save configuration file
 
     Args:
-        config: config dict to save | 要保存的配置字典
+        config: config dict to save
     """
     with open("./config.json", 'w', encoding='utf-8') as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
 
-# Setup Flask secret key from configuration | 从配置文件设置 Flask 密钥
+# Setup Flask secret key from configuration
 config = load_config()
 if 'flask_secret_key' not in config:
     config['flask_secret_key'] = secrets.token_hex(32)
     save_config(config)
 app.secret_key = config['flask_secret_key']
 
-# Authentication helpers | 认证辅助函数
+# Authentication helpers
 PRIVATE_KEY_FILE = "private.key"
 PUBLIC_KEY_FILE = "public.key"
 
 def generate_rsa_keys():
-    """Generate RSA key pair and save to files | 生成 RSA 密钥对并保存到文件"""
+    """Generate RSA key pair and save to files"""
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     public_key = private_key.public_key()
     with open(PRIVATE_KEY_FILE, "wb") as f:
@@ -88,7 +88,7 @@ def generate_rsa_keys():
         ))
     if os.name != 'nt':
         os.chmod(PRIVATE_KEY_FILE, 0o600)
-    print("✅ Generated RSA key pair. | 已生成 RSA 密钥对。")
+    print("✅ Generated RSA key pair.")
 
 def load_private_key():
     with open(PRIVATE_KEY_FILE, "rb") as f:
@@ -125,45 +125,44 @@ def verify_jwt_token(token):
         return False
 
 def login_required(f):
-    """Decorator to protect routes that require authentication | 保护需要认证的路由的装饰器"""
+    """Decorator to protect routes that require authentication"""
     @wraps(f)
     def decorated(*args, **kwargs):
         config = load_config()
-        # If no password has been set yet, allow access (frontend will guide setup) | 如果尚未设置密码，允许访问（前端会引导设置）
+        # If no password has been set yet, allow access (frontend will guide setup)
         if "password_hash" not in config:
             return f(*args, **kwargs)
         token = request.headers.get('Authorization', '').replace('Bearer ', '')
         if not token or not verify_jwt_token(token):
-            return jsonify({'error': 'Unauthorized | 未授权'}), 401
+            return jsonify({'error': 'Unauthorized'}), 401
         return f(*args, **kwargs)
     return decorated
 
-# Initialize RSA keys on first run | 首次运行时生成 RSA 密钥对
+# Initialize RSA keys on first run
 if not os.path.exists(PRIVATE_KEY_FILE) or not os.path.exists(PUBLIC_KEY_FILE):
     generate_rsa_keys()
 
-# Original global variables and functions | 原始全局变量和函数
-# Global variables: chat agent and task agent | 全局变量：聊天智能体和任务智能体
+# Original global variables and functions
+# Global variables: chat agent and task agent
 chat_agent = None
-chat_agent_lock = threading.Lock()  # Thread safety lock | 用于线程安全的锁
+chat_agent_lock = threading.Lock()  # Thread safety lock
 tasks_agent = None
 _public_url = None
 
-# Start Cloudflare tunnel in a background thread and get the public URL | 在后台线程中启动 Cloudflare 隧道并获取公网 URL
+# Start Cloudflare tunnel in a background thread and get the public URL
 def start_cloudflare_tunnel():
-    """Start a Cloudflare tunnel in a background thread and get the public URL | 在后台线程中启动 Cloudflare 隧道并获取公网 URL"""
     global _public_url
     try:
-        # 1. Start a temporary tunnel | 1. 启动临时隧道
+        # 1. Start a temporary tunnel
         tunnel = try_cloudflare(port=5000)
         
-        # 2. Get the public address | 2. 获取公网地址
+        # 2. Get the public address
         _public_url = tunnel
-        print(f"✅ Cloudflare tunnel started | Cloudflare隧道已启动：{_public_url.tunnel}")
+        print(f"✅ Cloudflare tunnel started: {_public_url.tunnel}")
     except Exception as e:
-        print(f"❌ Failed to start Cloudflare tunnel | 启动Cloudflare隧道失败：{e}")
+        print(f"❌ Failed to start Cloudflare tunnel: {e}")
 
-# Scheduled task SSE broadcaster | 定时任务 SSE 广播器
+# Scheduled task SSE broadcaster
 class EventBroadcaster:
     def __init__(self):
         self.connections = []
@@ -191,11 +190,11 @@ class EventBroadcaster:
 
 broadcaster = EventBroadcaster()
 
-# Store cancellation events for running tasks | 存储正在执行的任务取消事件
+# Store cancellation events for running tasks
 active_tasks = {}
 active_tasks_lock = threading.Lock()
 
-# Global dict for pending confirmations (used by /chat and /api/confirm_tool) | 全局待确认字典（用于 /chat 和 /api/confirm_tool）
+# Global dict for pending confirmations (used by /chat and /api/confirm_tool) 
 _pending_confirmations = {}
 _pending_lock = threading.Lock()
 
@@ -210,9 +209,9 @@ def init_agents():
     threshold = config.get("threshold", 20)
     knowledge_k = config.get("knowledge_k", 5)
     
-    settings = config.get("settings", "You are a helpful AI assistant. 你是一个有用的AI助手。")
+    settings = config.get("settings", "You are a helpful AI assistant.")
     
-    # Chat agent | 聊天智能体
+    # Chat agent
     chat_agent = FranxAgent(
         key=config["api_key"],
         url=config["base_url"],
@@ -225,7 +224,7 @@ def init_agents():
         knowledge_k=knowledge_k
     )
     
-    # Task agent | 任务智能体
+    # Task agent
     tasks_agent = FranxAgent(
         key=config["api_key"],
         url=config["base_url"],
@@ -238,19 +237,19 @@ def init_agents():
         knowledge_k=knowledge_k
     )
 
-# Scheduled task execution function (supports cancellation and streaming) | 定时任务执行函数（支持取消和流式推送）
+# Scheduled task execution function (supports cancellation and streaming)
 def execute_task(task_id, content, cancel_event):
-    """Execute a single scheduled task and push the process to SSE | 执行单个定时任务，并将过程实时推送到 SSE"""
-    # Send start event | 发送开始事件
+    """Execute a single scheduled task and push the process to SSE"""
+    # Send start event
     broadcaster.broadcast('task_start', {
         'task_id': task_id,
         'content': content,
-        'message': f"⏰ Executing scheduled task: {content} | ⏰ 执行定时任务: {content}"
+        'message': f"⏰ Executing scheduled task: {content}"
     })
 
     try:
         result_parts = []
-        # Iterate generator, push each chunk in real time | 迭代生成器，实时推送每个 chunk
+        # Iterate generator, push each chunk in real time
         for chunk in tasks_agent.input(content):
             if cancel_event.is_set():
                 broadcaster.broadcast('task_cancel', {'task_id': task_id})
@@ -261,7 +260,7 @@ def execute_task(task_id, content, cancel_event):
                 'chunk': chunk
             })
         full_result = ''.join(result_parts)
-        # Send completion event | 发送完成事件
+        # Send completion event
         broadcaster.broadcast('task_done', {
             'task_id': task_id,
             'result': full_result
@@ -278,18 +277,18 @@ def execute_task(task_id, content, cancel_event):
 
 def run_tasks():
     """
-    Scheduled task executor | 定时任务执行器
-    Checks tasks.json every 10 seconds and executes tasks matching the current time | 每隔10秒检查一次tasks.json，执行当前时间对应的任务
-    File format: {"HH:MM": "command content"} | 文件格式：{"HH:MM": "命令内容"}
+    Scheduled task executor
+    Checks tasks.json every 10 seconds and executes tasks matching the current time
+    File format: {"HH:MM": "command content"}
     """
-    # Initialize execution record set and last execution date | 初始化执行记录集合和上次执行日期
+    # Initialize execution record set and last execution date
     if not hasattr(run_tasks, "_executed"):
         run_tasks._executed = set()
     if not hasattr(run_tasks, "_last_date"):
         run_tasks._last_date = None
 
     while True:
-        # Check if task file exists | 检查任务文件是否存在
+        # Check if task file exists
         if os.path.exists("./tasks.json"):
             try:
                 with open("./tasks.json", 'r', encoding='utf-8') as f:
@@ -297,63 +296,62 @@ def run_tasks():
             except:
                 pass
             else:
-                # Get current time | 获取当前时间
+                # Get current time
                 now = datetime.now()
                 current_time = now.strftime("%H:%M")
                 today = now.strftime("%Y-%m-%d")
 
-                # If it's a new day, reset execution record | 如果是新的一天，重置执行记录
+                # If it's a new day, reset execution record
                 if today != run_tasks._last_date:
                     run_tasks._executed.clear()
                     run_tasks._last_date = today
 
-                # Iterate over all tasks (key is time, value is command) | 遍历所有任务（键为时间，值为命令）
+                # Iterate over all tasks (key is time, value is command)
                 for time_str, content in tasks.items():
                     if time_str == current_time and time_str not in run_tasks._executed:
-                        # Generate unique task ID | 生成唯一任务ID
+                        # Generate unique task ID
                         task_id = str(uuid.uuid4())
                         cancel_event = threading.Event()
                         with active_tasks_lock:
                             active_tasks[task_id] = cancel_event
-                        # Start execution thread | 启动执行线程
+                        # Start execution thread
                         thread = threading.Thread(target=execute_task, args=(task_id, content, cancel_event))
                         thread.daemon = True
                         thread.start()
                         run_tasks._executed.add(time_str)
-        # Sleep 10 seconds before next check | 睡眠10秒后再次检查
+        # Sleep 10 seconds before next check
         time.sleep(10)
 
-# Start scheduled task thread | 启动定时任务线程
+# Start scheduled task thread
 run_tasks_thread = threading.Thread(target=run_tasks, daemon=True)
 run_tasks_thread.start()
 
-# Authentication API endpoints | 认证 API 端点
+# Authentication API endpoints
 @app.route('/api/public-key', methods=['GET'])
 def get_public_key():
-    """Return RSA public key in PEM format | 返回 PEM 格式的 RSA 公钥"""
+    """Return RSA public key in PEM format"""
     return jsonify({'public_key': load_public_key_pem()})
 
 @app.route('/api/setup', methods=['POST'])
 def setup_password():
-    """First-time password setup (RSA encrypted) | 首次设置密码（RSA 加密传输）"""
+    """First-time password setup (RSA encrypted)"""
     config = load_config()
     if "password_hash" in config:
-        return jsonify({'error': 'Password already set | 密码已设置'}), 400
+        return jsonify({'error': 'Password already set'}), 400
     data = request.get_json()
     encrypted_password = data.get('password')
     if not encrypted_password:
-        return jsonify({'error': 'Missing password | 缺少密码'}), 400
+        return jsonify({'error': 'Missing password'}), 400
     private_key = load_private_key()
     try:
         from cryptography.hazmat.primitives.asymmetric import padding
-        from cryptography.hazmat.primitives import hashes
         decrypted = private_key.decrypt(
             base64.b64decode(encrypted_password),
             padding.PKCS1v15()
         )
         password = decrypted.decode()
     except Exception as e:
-        return jsonify({'error': f'Decryption failed | 解密失败: {e}'}), 400
+        return jsonify({'error': f'Decryption failed: {e}'}), 400
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
     config["password_hash"] = hashed.decode()
     if "jwt_secret" not in config:
@@ -364,14 +362,14 @@ def setup_password():
 
 @app.route('/api/login', methods=['POST'])
 def login():
-    """Login and return JWT token | 登录并返回 JWT token"""
+    """Login and return JWT token"""
     config = load_config()
     if "password_hash" not in config:
-        return jsonify({'error': 'Password not set | 密码未设置'}), 400
+        return jsonify({'error': 'Password not set'}), 400
     data = request.get_json()
     encrypted_password = data.get('password')
     if not encrypted_password:
-        return jsonify({'error': 'Missing password | 缺少密码'}), 400
+        return jsonify({'error': 'Missing password'}), 400
     private_key = load_private_key()
     try:
         from cryptography.hazmat.primitives.asymmetric import padding
@@ -381,17 +379,17 @@ def login():
         )
         password = decrypted.decode()
     except Exception as e:
-        return jsonify({'error': f'Decryption failed | 解密失败: {e}'}), 400
+        return jsonify({'error': f'Decryption failed: {e}'}), 400
     stored_hash = config["password_hash"].encode()
     if bcrypt.checkpw(password.encode(), stored_hash):
         token = generate_jwt_token()
         return jsonify({'status': 'success', 'token': token})
     else:
-        return jsonify({'error': 'Invalid password | 密码错误'}), 401
+        return jsonify({'error': 'Invalid password'}), 401
 
 @app.route('/api/check-auth', methods=['GET'])
 def check_auth():
-    """Check if password is set and if current token is valid | 检查密码是否已设置以及当前 token 是否有效"""
+    """Check if password is set and if current token is valid"""
     config = load_config()
     password_set = "password_hash" in config
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
@@ -403,7 +401,7 @@ def check_auth():
 @app.route('/api/messages', methods=['GET'])
 @login_required
 def get_messages():
-    """Return current conversation messages for cross‑device sync | 返回当前对话消息用于跨设备同步"""
+    """Return current conversation messages for cross‑device sync"""
     if chat_agent is None:
         return jsonify({'error': 'Agent not initialized'}), 500
     # Return a copy to avoid accidental modification | 返回副本以避免意外修改
@@ -413,8 +411,8 @@ def get_messages():
 @login_required
 def save_partial():
     """
-    Save a partially generated response when the user stops the generation. | 当用户停止生成时保存部分回复内容。
-    This ensures that the already streamed content is persisted in the conversation history and vector memory, enabling cross‑device sync and long‑term recall. | 确保已流式输出的内容被持久化到对话历史和向量记忆，从而实现跨设备同步和长期回忆。
+    Save a partially generated response when the user stops the generation.
+    This ensures that the already streamed content is persisted in the conversation history and vector memory, enabling cross‑device sync and long‑term recall.
     """
     if chat_agent is None:
         return jsonify({'error': 'Agent not initialized'}), 500
@@ -426,24 +424,24 @@ def save_partial():
     if not user_message or not partial_response:
         return jsonify({'error': 'Missing user_message or partial_response'}), 400
 
-    # Append the partial assistant message to the in‑memory conversation history | 将部分助手消息追加到内存中的对话历史
+    # Append the partial assistant message to the in‑memory conversation history
     assistant_message = {"role": "assistant", "content": partial_response}
     chat_agent.messages.append(assistant_message)
 
-    # Save to vector database and memories directory (backup) | 保存到向量数据库和 memories 目录（备份）
+    # Save to vector database and memories directory (backup)
     add_conversation(user_message, partial_response)
 
-    # Trigger memory compression to keep context length under control | 触发记忆压缩以控制上下文长度
+    # Trigger memory compression to keep context length under control
     chat_agent.memory()
 
     return jsonify({'status': 'ok'})
 
-# Tool confirmation API | 工具确认 API
+# Tool confirmation API
 @app.route('/api/confirm_tool', methods=['POST'])
 @login_required
 def confirm_tool():
     """
-    Receive user's decision for a pending tool confirmation and resume the agent generator. | 接收用户对等待中的工具确认的决策，并恢复智能体生成器。
+    Receive user's decision for a pending tool confirmation and resume the agent generator.
     """
     data = request.get_json()
     confirm_id = data.get('confirm_id')
@@ -455,44 +453,44 @@ def confirm_tool():
     with _pending_lock:
         if confirm_id not in _pending_confirmations:
             return jsonify({'error': 'Invalid or expired confirm_id'}), 404
-        # Retrieve the pending info | 获取待确认信息
+        # Retrieve the pending info
         pending = _pending_confirmations.pop(confirm_id)
 
-    pending['result']['done'] = approved  # Store the decision | 存储决策
-    pending['event'].set()  # Wake up the loop | 唤醒循环
+    pending['result']['done'] = approved  # Store the decision
+    pending['event'].set()  # Wake up the loop
 
     return jsonify({'status': 'ok'})
 
-# Frontend routes | 前端路由
+# Frontend routes
 @app.route('/login')
 def login_page():
-    """Login page | 登录页面"""
+    """Login page"""
     return render_template('login.html')
 
 @app.route('/register')
 def register_page():
-    """Register page (first-time password setup) | 注册页面（首次设置密码）"""
+    """Register page (first-time password setup)"""
     return render_template('register.html')
 
 @app.route('/')
 def index():
     """
-    Root route | 根路径路由
-    Returns web chat interface template | 返回Web聊天界面模板
+    Root route
+    Returns web chat interface template
 
     Returns:
-        Rendered HTML page | 渲染后的HTML页面
+        Rendered HTML page
     """
     return render_template('index.html')
 
 @app.route('/session', methods=['GET'])
 def get_session():
     """
-    Get session ID | 获取会话ID
-    For frontend to validate session validity | 用于前端验证会话是否有效
+    Get session ID
+    For frontend to validate session validity
 
     Returns:
-        JSON response containing startup_id | 包含startup_id的JSON响应
+        JSON response containing startup_id
     """
     return jsonify({'startup_id': STARTUP_ID})
 
@@ -502,48 +500,48 @@ def chat():
     data = request.get_json()
     user_message = data.get('message', '').strip()
     if not user_message:
-        return jsonify({'error': 'Message cannot be empty | 消息不能为空'}), 400
+        return jsonify({'error': 'Message cannot be empty'}), 400
 
     def generate():
-        # Save original stdout | 保存原始标准输出
+        # Save original stdout
         old_stdout = sys.stdout
-        # Buffer for compatibility (not actually sent) | 用于兼容原逻辑的缓冲区（实际不再发送，仅用于写入）
+        # Buffer for compatibility (not actually sent)
         sio = io.StringIO()
-        # Queue for real-time logs (from print statements) | 实时日志队列（来自 print 语句）
+        # Queue for real-time logs (from print statements)
         log_q = queue.Queue()
 
-        # Custom output stream: each print writes to both original buffer and real-time queue | 自定义输出流：每个 print 同时写入原缓冲区和实时队列
+        # Custom output stream: each print writes to both original buffer and real-time queue
         class QueueStream(io.TextIOBase):
             def write(self, s):
                 if s:
                     log_q.put(s)
                 return sio.write(s)
 
-        # Redirect stdout to custom stream | 重定向标准输出到自定义流
+        # Redirect stdout to custom stream
         sys.stdout = QueueStream()
 
-        # Accumulate full response (for final HTML) | 累积完整回复（用于最终 HTML）
+        # Accumulate full response (for final HTML)
         full_response = ""
 
         try:
-            # Retrieve knowledge and send to frontend | 检索知识并发送到前端
+            # Retrieve knowledge and send to frontend
             try:
-                # Get knowledge_k from agent, default to 5 if not present | 从 agent 获取 knowledge_k，如果不存在则默认 5
+                # Get knowledge_k from agent, default to 5 if not present
                 k = getattr(chat_agent, 'knowledge_k', 5)
                 relevant = search(user_message, k=k)
                 for item in relevant:
-                    # Send each knowledge item as a separate 'knowledge' event | 每条知识单独发送一个 knowledge 事件
+                    # Send each knowledge item as a separate 'knowledge' event
                     yield f"data: {json.dumps({'type': 'knowledge', 'text': item})}\n\n"
             except Exception as e:
-                # Retrieval failure does not affect main flow, only print log | 检索失败不影响主流程，仅打印日志
-                print(f"Knowledge retrieval failed | 知识检索失败: {e}")
+                # Retrieval failure does not affect main flow, only print log
+                print(f"Knowledge retrieval failed: {e}")
 
-            # Get the generator from agent (this yields text and confirmation requests) | 获取智能体的生成器（yield 文本和确认请求）
+            # Get the generator from agent (this yields text and confirmation requests)
             agent_gen = chat_agent.input(user_message)
             gen_exhausted = False
 
             while not gen_exhausted:
-                # Drain log queue (print output) | 排空日志队列
+                # Drain log queue (print output)
                 while True:
                     try:
                         line = log_q.get_nowait()
@@ -553,25 +551,25 @@ def chat():
                         break
 
                 try:
-                    # Get next item from agent generator | 从智能体生成器获取下一个项目
+                    # Get next item from agent generator
                     item = next(agent_gen)
                 except StopIteration:
-                    # Generator finished | 生成器结束
+                    # Generator finished
                     gen_exhausted = True
                     break
 
-                # Handle different types of items | 处理不同类型的项目
+                # Handle different types of items
                 if isinstance(item, str):
-                    # Normal text chunk | 普通文本块
+                    # Normal text chunk
                     full_response += item
                     yield f"data: {json.dumps({'type': 'content', 'text': item})}\n\n"
                 elif isinstance(item, dict) and item.get('type') == 'confirmation_required':
-                    # Confirmation request | 确认请求
+                    # Confirmation request
                     confirm_id = item['confirm_id']
-                    # Create an event and result holder to wait for user decision | 创建事件和结果容器以等待用户决策
+                    # Create an event and result holder to wait for user decision
                     event = threading.Event()
-                    result_holder = {'done': None}  # None means not decided yet | None 表示尚未决策
-                    # Store in global dict | 存储到全局字典
+                    result_holder = {'done': None}  # None means not decided yet
+                    # Store in global dict
                     with _pending_lock:
                         _pending_confirmations[confirm_id] = {
                             'generator': agent_gen,
@@ -580,42 +578,42 @@ def chat():
                             'tool_name': item['tool_name'],
                             'arguments': item['arguments']
                         }
-                    # Send confirmation request to frontend | 发送确认请求到前端
+                    # Send confirmation request to frontend
                     yield f"data: {json.dumps(item)}\n\n"
-                    # Wait for the confirmation API to set the result | 等待确认 API 设置结果
+                    # Wait for the confirmation API to set the result
                     event.wait()
                     
-                    # Now we resume the generator here | 现在我们在这里恢复生成器
+                    # Now we resume the generator here
                     approved = result_holder.get('done', False)
                     try:
-                        # generator.send() returns the next yielded value (tool_result) | generator.send() 返回下一个 yield 的值 (tool_result)
+                        # generator.send() returns the next yielded value (tool_result)
                         next_item = agent_gen.send(approved)
                         
-                        # Forward the yielded item to frontend | 将 yield 的项目转发到前端
+                        # Forward the yielded item to frontend
                         if isinstance(next_item, dict):
                              yield f"data: {json.dumps(next_item)}\n\n"
                         elif isinstance(next_item, str):
-                             # Handle text if returned immediately | 如果立即返回文本则处理
+                             # Handle text if returned immediately
                              full_response += next_item
                              yield f"data: {json.dumps({'type': 'content', 'text': next_item})}\n\n"
                     except StopIteration:
                         gen_exhausted = True
                     
-                    continue  # Go back to the loop to get next items | 回到循环，获取确认后的后续项目
+                    continue  # Go back to the loop to get next items
                 elif isinstance(item, dict) and item.get('type') == 'tool_call':
-                    # Structured tool call event | 结构化工具调用事件
+                    # Structured tool call event
                     yield f"data: {json.dumps(item)}\n\n"
                 
-                # Handle tool result event | 处理工具结果事件
+                # Handle tool result event
                 elif isinstance(item, dict) and item.get('type') == 'tool_result':
-                    # Tool result event | 工具结果事件
+                    # Tool result event
                     yield f"data: {json.dumps(item)}\n\n"
                 
                 else:
-                    # Unknown item type, ignore | 未知类型，忽略
+                    # Unknown item type, ignore
                     print(f"Unknown item from agent generator: {item}")
 
-            # Final drain of logs | 最后排空日志
+            # Final drain of logs
             while True:
                 try:
                     line = log_q.get_nowait()
@@ -624,30 +622,30 @@ def chat():
                 except queue.Empty:
                     break
 
-            # Render full message as HTML (backend rendering) | 完整消息渲染为 HTML（后端渲染）
+            # Render full message as HTML (backend rendering)
             if full_response:
                 try:
-                    # Convert Markdown to HTML using markdown library | 使用 markdown 库将 Markdown 转为 HTML
+                    # Convert Markdown to HTML using markdown library
                     html = markdown.markdown(full_response, extensions=['tables', 'fenced_code'])
                     yield f"data: {json.dumps({'type': 'html', 'html': html})}\n\n"
                 except Exception as e:
-                    # Rendering failed, send error but don't interrupt stream | 渲染失败，发送错误但不中断流
-                    yield f"data: {json.dumps({'type': 'error', 'text': f'Markdown rendering failed | Markdown渲染失败: {str(e)}'})}\n\n"
+                    # Rendering failed, send error but don't interrupt stream
+                    yield f"data: {json.dumps({'type': 'error', 'text': f'Markdown rendering failed: {str(e)}'})}\n\n"
 
-            # Send stream end signal | 发送流结束信号
+            # Send stream end signal
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
-            # Store the current Q&A pair into the vector database | 将本轮问答实时存入向量库
+            # Store the current Q&A pair into the vector database
             if full_response:
                 add_conversation(user_message, full_response)
 
         except Exception as e:
-            # Catch any unhandled exceptions to prevent server crash | 捕获未处理异常，防止服务崩溃
+            # Catch any unhandled exceptions to prevent server crash
             import traceback
             traceback.print_exc()
-            yield f"data: {json.dumps({'type': 'error', 'text': f'Agent crashed | 智能体崩溃: {str(e)}'})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'text': f'Agent crashed: {str(e)}'})}\n\n"
         finally:
-            # CRITICAL: MUST restore stdout no matter what happens | 关键：无论发生什么，必须恢复原始标准输出
+            # CRITICAL: MUST restore stdout no matter what happens
             sys.stdout = old_stdout
 
     return Response(
@@ -663,11 +661,11 @@ def chat():
 @login_required
 def get_config():
     """
-    Get configuration interface | 获取配置接口
-    Returns current configuration (excluding sensitive info like API keys) | 返回当前配置（不包含API密钥等敏感信息）
+    Get configuration interface
+    Returns current configuration (excluding sensitive info like API keys)
 
     Returns:
-        JSON response of config dict | 配置字典的JSON响应
+        JSON response of config dict
     """
     try:
         with open("./config.json", 'r', encoding='utf-8') as f:
@@ -680,38 +678,38 @@ def get_config():
 @login_required
 def update_config():
     """
-    Update configuration interface | 更新配置接口
-    Save configuration and reinitialize agents | 保存配置并重新初始化智能体
+    Update configuration interface
+    Save configuration and reinitialize agents
 
     Returns:
-        JSON response of operation status or error message | 操作状态或错误信息的JSON响应
+        JSON response of operation status or error message
     """
     data = request.get_json()
     required = ['api_key', 'base_url', 'model']
-    # Check required fields exist | 检查必需字段是否存在
+    # Check required fields exist
     for field in required:
         if field not in data:
-            return jsonify({'error': f'Missing field: {field} | 缺少字段: {field}'}), 400
+            return jsonify({'error': f'Missing field: {field}'}), 400
     try:
-        # Save configuration file | 保存配置文件
+        # Save configuration file
         with open("./config.json", 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-        # Reinitialize agents | 重新初始化智能体
+        # Reinitialize agents
         init_agents()
         return jsonify({'status': 'success'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# Scheduled task management API | 定时任务管理接口
+# Scheduled task management API
 @app.route('/tasks', methods=['GET', 'POST'])
 @login_required
 def tasks_api():
     """
-    Scheduled task management API | 定时任务管理接口
-    - GET: return all tasks | GET: 返回所有任务
-    - POST: add or delete tasks, distinguished by action parameter | POST: 支持添加或删除任务，通过 action 参数区分
-        action=add: add task, requires time and content | action=add: 添加任务，需提供 time 和 content
-        action=delete: delete task, requires time | action=delete: 删除任务，需提供 time
+    Scheduled task management API
+    - GET: return all tasks
+    - POST: add or delete tasks, distinguished by action parameter
+        action=add: add task, requires time and content
+        action=delete: delete task, requires time
     """
     if request.method == 'GET':
         try:
@@ -731,7 +729,7 @@ def tasks_api():
             time_str = data.get('time')
             content = data.get('content')
             if not time_str or not content:
-                return jsonify({'error': 'Missing time or content field | 缺少 time 或 content 字段'}), 400
+                return jsonify({'error': 'Missing time or content field'}), 400
             try:
                 if os.path.exists("./tasks.json"):
                     with open("./tasks.json", 'r', encoding='utf-8') as f:
@@ -748,10 +746,10 @@ def tasks_api():
         elif action == 'delete':
             time_str = data.get('time')
             if not time_str:
-                return jsonify({'error': 'Missing time field | 缺少 time 字段'}), 400
+                return jsonify({'error': 'Missing time field'}), 400
             try:
                 if not os.path.exists("./tasks.json"):
-                    return jsonify({'error': 'Task file does not exist | 任务文件不存在'}), 404
+                    return jsonify({'error': 'Task file does not exist'}), 404
                 with open("./tasks.json", 'r', encoding='utf-8') as f:
                     tasks = json.load(f)
                 if time_str in tasks:
@@ -760,17 +758,17 @@ def tasks_api():
                         json.dump(tasks, f, indent=2, ensure_ascii=False)
                     return jsonify({'status': 'success'})
                 else:
-                    return jsonify({'error': 'Task does not exist | 任务不存在'}), 404
+                    return jsonify({'error': 'Task does not exist'}), 404
             except Exception as e:
                 return jsonify({'error': str(e)}), 500
         else:
-            return jsonify({'error': 'Unknown action | 未知的 action'}), 400
+            return jsonify({'error': 'Unknown action'}), 400
 
-# SSE event stream | SSE 事件流
+# SSE event stream
 @app.route('/events')
 @login_required
 def events():
-    """Server-Sent Events endpoint for pushing scheduled task real-time status | Server-Sent Events 端点，用于推送定时任务实时状态"""
+    """Server-Sent Events endpoint for pushing scheduled task real-time status"""
     def generate():
         q = broadcaster.subscribe()
         try:
@@ -792,23 +790,23 @@ def events():
         }
     )
 
-# Cancel task API | 取消任务接口
+# Cancel task API
 @app.route('/cancel_task/<task_id>', methods=['POST'])
 @login_required
 def cancel_task(task_id):
-    """Cancel a running task | 取消正在执行的任务"""
+    """Cancel a running task"""
     with active_tasks_lock:
         if task_id in active_tasks:
             active_tasks[task_id].set()
             return jsonify({'status': 'cancelling'})
         else:
-            return jsonify({'error': 'Task does not exist or has already ended | 任务不存在或已结束'}), 404
+            return jsonify({'error': 'Task does not exist or has already ended'}), 404
 
 if __name__ == '__main__':
-    # Initialize agents | 初始化智能体
+    # Initialize agents
     init_agents()
-    # Start Cloudflare tunnel in a background thread | 在后台线程中启动 Cloudflare 隧道
+    # Start Cloudflare tunnel in a background thread
     tunnel_thread = threading.Thread(target=start_cloudflare_tunnel, daemon=True)
     tunnel_thread.start()
-    # Start web service (127.0.0.1:5000, debug=False to avoid production risks) | 启动Web服务（127.0.0.1:5000，关闭debug模式以避免生产环境风险）
+    # Start web service (127.0.0.1:5000, debug=False to avoid production risks)
     app.run(host='127.0.0.1', port=5000, debug=False, use_reloader=False)

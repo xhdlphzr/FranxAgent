@@ -43,7 +43,7 @@ cd FranxAgent
 ```
 
 ### 2. Install dependencies
-Windows users double‑click `start.bat`, macOS users double‑click `start.sh` – virtual environment and dependencies will be set up automatically.
+Windows users double‑click `init.bat`, macOS users double‑click `init.sh` – virtual environment and dependencies will be set up automatically.
 
 ### 3. Configure
 Modify `config.json` according to your needs (see configuration section below).
@@ -79,7 +79,7 @@ In `config.json`, you can adjust the following parameters:
 | `api_key` | string | - | API key (required). For Ollama, any value works. |
 | `base_url` | string | - | API base URL (required). For Ollama: `http://localhost:11434/v1`, for GLM: `https://open.bigmodel.cn/api/paas/v4`. |
 | `model` | string | - | Model name (required). Recommended: `glm-4.7-flash`, `qwen2.5:7b`, etc. |
-| `settings` | string | `"You are a helpful AI assistant. 你是一个有用的AI助手。"` | System prompt defining AI’s role or behaviour. |
+| `settings` | string | `"You are a helpful AI assistant."` | System prompt defining AI’s role or behaviour. |
 | `temperature` | float | `0.8` | Randomness, range 0–2 (but recommended 0–1). Lower = more deterministic, higher = more creative. |
 | `thinking` | bool | `false` | Enable deep thinking mode (GLM models only). The model outputs reasoning steps but responds slightly slower. |
 | `max_iterations` | int | `100` | Max tool call iterations to prevent infinite loops. |
@@ -118,7 +118,7 @@ Inside the `tools` field, you can specify separate parameters for `ett` (multimo
     "max_iterations": 100,
     "threshold": 20,
     "knowledge_k": 5,
-    "settings": "You are a helpful AI assistant. 你是一个有用的AI助手。",
+    "settings": "You are a helpful AI assistant.",
     "tools": {
         "ett": {
             "api_key": "your-zhipu-api-key",

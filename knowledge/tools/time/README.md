@@ -11,7 +11,3 @@ You should have received a copy of the GNU General Public License along with Fra
 - **Input**: No parameters required.
 - **Output**: Returns a string containing the current local date and time (e.g., `2026-03-14 Saturday 15:30:45`).
 - **Notes**: This tool only reads the system clock and does not modify any content.
-- **用途**：当你需要知道当前的日期、时间、星期几，或者计算时间间隔时使用。
-- **输入**：不需要任何参数。
-- **输出**：返回一个字符串，包含当前的本地日期和时间（例如：`2026-03-14 星期六 15:30:45`）。
-- **注意事项**：此工具只是读取系统时钟，不会修改任何内容。
