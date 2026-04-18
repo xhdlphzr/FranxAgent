@@ -194,3 +194,9 @@
 - `t(key, params)` translation function + `data-i18n` declarative attributes.
 - Translation fallback chain: `<lang>.yaml` → `en.yaml` → raw key.
 - Migrated Chinese documentation to `docs/zh/` directory.
+
+## [v4.12.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.12.0)
+- `save_skill` tool: AI can now save reusable skills as Markdown files and immediately index them into the knowledge base — zero restart, real-time retrieval.
+- `knowledge/tools/save_skill/tool.py` — writes file + vectors + updates file_versions in one call.
+- `knowledge/tools/save_skill/README.md` — tool description for AI retrieval.
+- `USER_GUIDE` section for `save_skill` with usage guidelines and when (not) to use.
