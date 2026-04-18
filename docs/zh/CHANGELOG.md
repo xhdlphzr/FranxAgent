@@ -204,3 +204,12 @@
 
 ## [v4.12.1](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.12.1)
 - 修复 `add_skill` 工具的 bug。
+
+## [v4.13.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.13.0)
+- 大重构：拆分 `knowledge/__init__.py` 为 `config.py`、`loader.py`、`vector.py`、`search.py`、`memory.py` — 每个模块职责单一。
+- 大重构：拆分 `src/app.py` 为 `state.py`、`auth.py`、`scheduler.py` 及 `routes/` 目录（`auth.py`、`chat.py`、`config.py`、`tasks.py`）— 每个文件对应明确领域。
+- 大重构：CSS 抽取为 `static/css/index.css`、`login.css`、`register.css`。
+- 大重构：JS 抽取为 `static/js/` — `i18n.js`、`auth.js`、`chat.js`、`config.js`、`app.js`、`login.js`、`register.js`。
+- 共享状态集中到 `src/state.py` 和 `knowledge/config.py` — 消除全局变量散落。
+- `save_skill/tool.py` 更新为新模块路径（`knowledge.vector.add_document`、`knowledge.config`）。
+- 启动方式变更：需从项目根目录执行 `python -m src.app`（因包导入调整）。

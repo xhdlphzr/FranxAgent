@@ -203,3 +203,12 @@
 
 ## [v4.12.1](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.12.1)
 - Fixed `add_skill` bug.
+
+## [v4.13.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.13.0)
+- Major refactoring: split `knowledge/__init__.py` into `config.py`, `loader.py`, `vector.py`, `search.py`, `memory.py` — each module has a single responsibility.
+- Major refactoring: split `src/app.py` into `state.py`, `auth.py`, `scheduler.py`, and `routes/` directory (`auth.py`, `chat.py`, `config.py`, `tasks.py`) — each file maps to a clear domain.
+- Major refactoring: extracted CSS into `static/css/index.css`, `login.css`, `register.css`.
+- Major refactoring: extracted JS into `static/js/` — `i18n.js`, `auth.js`, `chat.js`, `config.js`, `app.js`, `login.js`, `register.js`.
+- Shared state centralized in `src/state.py` and `knowledge/config.py` — eliminates global variable scattering.
+- `add_skill/tool.py` updated to use new module paths (`knowledge.vector.add_document`, `knowledge.config`).
+- Launch method changed: now requires `python -m src.app` from project root (due to package imports).
