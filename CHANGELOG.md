@@ -1,6 +1,6 @@
 # Changelog
 
-**English** | [中文](docs/CHANGELOG_zh.md)
+**English** | [中文](docs/zh/CHANGELOG_zh.md)
 
 ## [v1.0.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v1.0.0)
 - Initial release of the command-line version.

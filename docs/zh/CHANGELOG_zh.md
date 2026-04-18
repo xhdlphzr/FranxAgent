@@ -1,6 +1,6 @@
 # Changelog
 
-[English](../CHANGELOG.md) | **中文**
+[English](../../CHANGELOG.md) | **中文**
 
 
 ## [v1.0.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v1.0.0)
