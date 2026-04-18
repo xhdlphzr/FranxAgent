@@ -8,11 +8,12 @@
 FranxAgent is a lightweight AI agent framework that enables AI to read files, execute commands, search the web, understand multimodal content, and truly interact with the world through the MCP protocol.  
 **Now it also features:**
 - 🌐 **One‑click intranet penetration**: integrated Cloudflare Tunnel – start it and get a public URL, access from your phone or tablet anytime, anywhere.
-- 🔐 **Military‑grade security authentication**: RSA public‑key encryption + JWT short‑lived tokens, supports “refresh‑to‑re‑login” mode, completely eliminating long‑term token leakage risks.
+- 🔐 **Military‑grade security authentication**: RSA public‑key encryption + JWT short‑lived tokens, supports "refresh‑to‑re‑login" mode, completely eliminating long‑term token leakage risks.
 - 📱 **Perfect mobile adaptation**: bottom liquid‑glass dock, breathing dot animation, touch optimisation – same experience on phone and desktop.
 - 🧠 **Echoes of Thoughts knowledge base**: all tool descriptions, skill files, and conversation histories are automatically vectorised, using hybrid search (vector semantics + keyword matching) for long‑term memory and cross‑session recall.
+- 🌱 **Self‑growth**: after completing complex tasks, the AI can autonomously save reusable skills via `add_skill` – zero restart, real‑time retrieval. Every experience becomes nourishment for future conversations.
 
-**From now on, AI can not only go “From Words to Worlds”, but also “let every echo become the nourishment of thought”.**
+**From now on, AI can not only go "From Words to Worlds", but also "let every echo become the nourishment of thought".**
 
 ---
 
@@ -156,9 +157,7 @@ Inside the `tools` field, you can specify separate parameters for `ett` (multimo
 | `write` | Write/append to file | Auto‑creates parent directories; overwrite/append options |
 | `command` | Execute system command | ❌ Direct deletion blocked; suggests moving instead. Supports timeout. |
 | `search` | Web search (DuckDuckGo) | Free, no API key. Returns title, snippet, URL. |
-| `similarity` | String similarity (rolling hash) | Window size 3 bytes, returns percentage. |
-| `ett` | Multimodal understanding | Analyze images, videos, documents (Word/Excel/PDF). Requires Zhipu GLM‑4.6V‑Flash. Supports public URL or local file (auto base64). |
-| `beijing_subway` | Beijing subway route planning | Input start and end station names, returns optimal route (peak/off‑peak speed considered). Requires `station.json` and `graph.txt` in `knowledge/tools/beijing_subway/` and `geopy` installed. |
+| `add_skill` | Save a reusable skill | Saves Markdown skill file and immediately indexes it into the vector database. Zero restart, real‑time retrieval. No confirmation needed. |
 
 **MCP tool integration**  
 Add any MCP server (stdio mode) in `config.json`:
