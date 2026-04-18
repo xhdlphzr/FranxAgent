@@ -10,5 +10,6 @@ knowledge/*
 !knowledge/tools/search
 !knowledge/tools/time
 !knowledge/tools/write
+!knowledge/tools/add_skill
 /private.key
 /public.key
