@@ -225,3 +225,6 @@
 
 ## [v4.15.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.15.0)
 - Tools documentation internationalization (multi-document solution).
+
+## [v4.15.1](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.15.1)
+- Fixed bug in `src/agent.py`.

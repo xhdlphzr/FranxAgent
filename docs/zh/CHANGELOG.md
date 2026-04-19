@@ -226,3 +226,6 @@
 
 ## [v4.15.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.15.0)
 - 工具文档国际化（多文档解决）。
+
+## [v4.15.1](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.15.1)
+- 修复 `src/agent.py` 中的 bug。
