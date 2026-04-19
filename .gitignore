@@ -4,5 +4,6 @@ __pycache__/
 tasks.json
 knowledge/skills/*
 knowledge/memories/*
+knowledge/knowledge.db
 /private.key
 /public.key
