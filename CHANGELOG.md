@@ -222,3 +222,6 @@
 - Added directory scanning to `read` tool: Passing a directory path returns a project structure map (skeleton summary of all code files), providing a full architectural overview in one call.
 - Added `edit` mode to `write` tool: Precisely replace file content by line number range (`line_start`, `line_end`), fully aligned with `read`'s line numbers.
 - Updated English and Chinese READMEs with synced tool descriptions and usage examples.
+
+## [v4.15.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.15.0)
+- Tools documentation internationalization (multi-document solution).

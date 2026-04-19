@@ -223,3 +223,6 @@
 - `read` 工具支持目录扫描：传入目录路径时，返回项目结构地图（所有代码文件的骨架摘要），一次调用即可了解全局架构。
 - `write` 工具新增 `edit` 模式：按行号范围（`line_start`、`line_end`）精确替换文件内容，与 `read` 的行号体系完全对齐。
 - 更新中英文 README，同步工具说明与使用示例。
+
+## [v4.15.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.15.0)
+- 工具文档国际化（多文档解决）。
