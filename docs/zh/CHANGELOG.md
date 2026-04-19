@@ -58,7 +58,7 @@
 
 ## [v3.0.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v3.0.0)
 - MCP 协议支持（stdio 模式），可连接任意 MCP 服务器。
-- 项目更名为 FranxAgent。
+- 项目更名为 FranxAI。
 - 重构为“大一统工具”架构，所有内置工具及 MCP 工具统一通过 `tools` 调用，显著降低 token 消耗。
 
 ## [v3.1.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v3.1.0)

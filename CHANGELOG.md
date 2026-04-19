@@ -57,7 +57,7 @@
 
 ## [v3.0.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v3.0.0)
 - MCP protocol support (stdio mode), connecting to any MCP server.
-- Project renamed to FranxAgent.
+- Project renamed to FranxAI.
 - Refactored into a "unified tool" architecture; all built-in and MCP tools are called through a single `tools` tool, significantly reducing token consumption.
 
 ## [v3.1.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v3.1.0)
