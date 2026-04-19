@@ -22,7 +22,7 @@ FranxAgent is a lightweight AI agent framework that enables AI to read files, ex
 - 📱 **Zero‑configuration remote access**: integrated Cloudflare Tunnel – one‑click public URL, no public IP or router settings needed. Access FranxAgent on your computer directly from your phone/tablet.
 - 🔐 **Military‑grade security authentication**: RSA asymmetric encryption + JWT short‑lived tokens, supports "refresh‑to‑re‑login" (token stored only in memory, cleared on page refresh), completely prevents long‑term control after token leakage.
 - 🧠 **Intelligent memory & hybrid search**: conversation history automatically stored in vector database, combined with FTS5 keyword search for precise cross‑session recall.
-- 🛠️ **Rich built‑in tools**: `time`, `read`, `write`, `command`, `search`, `similarity`, `ett` (multimodal understanding), `beijing_subway`, etc., extensible.
+- 🛠️ **Rich built‑in tools**: `time`, `read`, `write`, `command`, `search`, `add_skill`, etc., extensible.
 - 🌐 **MCP protocol support**: integrate any stdio MCP server with a simple configuration – AI automatically learns to use all its tools.
 - ⏰ **Scheduled tasks**: runs in background thread, supports daily recurring tasks – AI executes commands at specified times.
 - 📚 **Skill system**: Markdown files in `knowledge/` are automatically merged into the system prompt, giving AI extra knowledge, rules, or workflows.
