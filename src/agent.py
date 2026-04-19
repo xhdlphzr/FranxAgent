@@ -67,35 +67,49 @@ For tools that require parameters, `arguments` must be a JSON object containing 
 - **Use tools, not skills**: Any heading marked with “skill” is not a tool you can call; it is content you should learn.
 
 ## 🔨Common Tools
-### `read` - Read File Content
-- **Purpose**: Call this tool when the user requests to view the content of a file, analyze data within a file, or when you need to obtain information from a file to complete subsequent tasks.
+### `read` - Read File Content or Project Structure
+- **Purpose**: Call this tool when the user requests to view the content of a file, analyze data within a file, obtain information from a file to complete subsequent tasks, or understand the structure of a project.
 - **Input**:
 ```json
 {
-    "path": "Full path of the file"
+    "path": "Full path of the file or directory"
 }
 ```
-    - `path`: **string**, required. The path can be an absolute path, or a relative path based on the current working directory.
-- **Output**: File content (text format) or image/video description (if the file is an image or video file). An error message will be returned if the file does not exist or cannot be read.
-- **Notes**: This tool is read-only and will not modify the file. Ensure the path is correct; confirm the file location via other methods if necessary.
+    - `path`: **string**, required. The path can be an absolute path, or a relative path based on the current working directory. Pass a directory path to scan the project structure.
+- **Output**:
+    - **Code files** (py, js, ts, rs, go, java, c, cpp, cs, etc.): Returns a `structure` section (AST skeleton with node types, names, and line ranges) followed by a `content` section (full file with line numbers). Use the structure to navigate, and the line numbers to locate exact positions for the `write` tool's edit mode.
+    - **Non-code text files**: Returns file content with line numbers.
+    - **Document files** (PDF, Word, Excel, PowerPoint, CSV): Returns converted text content.
+    - **Image/Video files**: Returns an AI-generated description.
+    - **Directory**: Returns a structure map of all code files in the project, showing classes, functions, imports, and their line ranges.
+    - An error message will be returned if the path does not exist or cannot be read.
+- **Notes**: This tool is read-only and will not modify any files. Ensure the path is correct; confirm the file location via other methods if necessary.
 
-### `write` - Write or append file content
+### `write` — Write, append, or edit file content
 - **Purpose**: Used when the user requests creating new files, writing content to existing files, or modifying files.
 - **Input**:
     ```json
     {
         "path": "Full path of the file",
         "content": "Content to write",
-        "mode": "overwrite" or "append"  // Default: "overwrite"
+        "mode": "overwrite" or "append" or "edit",
+        "line_start": 0,
+        "line_end": 0
     }
     ```
     - `path`: **string**, required, full path of the file
-    - `content`: **string**, required, content to be written
-    - `mode`: **string**, optional, default is "overwrite". Available values: "overwrite" for replacement, "append" for adding content
+    - `content`: **string**, required, content to be written. In edit mode, pass empty string to delete the target lines.
+    - `mode`: **string**, optional, default is "overwrite". Available values:
+        - `"overwrite"`: Replace entire file
+        - `"append"`: Append to end of file
+        - `"edit"`: Replace lines from `line_start` to `line_end` (both inclusive, 1-based). Use with `read` tool's line numbers for precise editing.
+    - `line_start`: **integer**, required in edit mode. Start line number (1-based, inclusive).
+    - `line_end`: **integer**, required in edit mode. End line number (1-based, inclusive).
 - **Output**: Prompt message indicating whether the operation succeeded or failed.
 - **Notes**:
     - Ensure the written content is explicitly requested by the user; do not modify files arbitrarily.
     - If the directory where the file is located does not exist, the tool will automatically create the directory (permissions required).
+    - In edit mode, always use `read` first to get the current line numbers, then specify the exact range to replace.
 
 ### `command` - Execute System Commands (With Administrator Privileges)
 - **Purpose**: Use this tool when users need to run programs, execute scripts, manage system services, install software, or perform other command-line tasks. This tool has **administrator privileges**, enabling most system-level operations.

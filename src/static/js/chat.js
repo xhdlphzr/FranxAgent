@@ -67,10 +67,15 @@ function renderStreamingMarkdown(msgDiv, rawText) {
 }
 
 function updateKnowledgeBlock(msgDiv, knowledgeItems) {
+    msgDiv._knowledgeItems = knowledgeItems;
     if (!knowledgeItems.length) {
         if (currentKnowledgeBlock) currentKnowledgeBlock.remove();
         currentKnowledgeBlock = null;
         return;
+    }
+    // If currentKnowledgeBlock belongs to a different message, reset it
+    if (currentKnowledgeBlock && currentKnowledgeBlock.parentElement !== msgDiv) {
+        currentKnowledgeBlock = null;
     }
     if (!currentKnowledgeBlock) {
         currentKnowledgeBlock = document.createElement('div');
@@ -322,17 +327,22 @@ function saveMessagesToLocalStorage() {
     document.querySelectorAll('.message').forEach(msgDiv => {
         const role = msgDiv.classList.contains('user') ? 'user' : 'assistant';
         if (!msgDiv.classList.contains('temp')) {
+            const msg = { role };
             if (role === 'assistant') {
                 if (msgDiv._rawText) {
-                    messages.push({ role, content: msgDiv._rawText });
+                    msg.content = msgDiv._rawText;
                 } else if (msgDiv._textNode) {
-                    messages.push({ role, content: msgDiv._textNode.textContent });
+                    msg.content = msgDiv._textNode.textContent;
                 } else {
-                    messages.push({ role, content: msgDiv.textContent });
+                    msg.content = msgDiv.textContent;
+                }
+                if (msgDiv._knowledgeItems && msgDiv._knowledgeItems.length > 0) {
+                    msg.knowledge = msgDiv._knowledgeItems;
                 }
             } else {
-                messages.push({ role, content: msgDiv.textContent });
+                msg.content = msgDiv.textContent;
             }
+            messages.push(msg);
         }
     });
     localStorage.setItem('chatMessages', JSON.stringify(messages));
@@ -343,7 +353,11 @@ function loadMessagesFromLocalStorage() {
     if (stored) {
         const messages = JSON.parse(stored);
         messages.forEach(msg => {
-            addMessage(msg.role, msg.content, false, '', true);
+            const msgDiv = addMessage(msg.role, msg.content, false, '', true);
+            if (msg.role === 'assistant' && msg.knowledge && msg.knowledge.length > 0) {
+                msgDiv._knowledgeItems = msg.knowledge;
+                updateKnowledgeBlock(msgDiv, msg.knowledge);
+            }
         });
     }
 }

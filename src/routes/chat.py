@@ -90,8 +90,19 @@ def chat():
                             'arguments': item['arguments']
                         }
                     yield f"data: {json.dumps(item)}\n\n"
-                    event.wait()
-                    approved = result_holder.get('done', False)
+
+                    # Poll with heartbeat instead of blocking wait
+                    # If client disconnects, the heartbeat yield raises GeneratorExit
+                    approved = False
+                    while not event.is_set():
+                        if event.wait(timeout=1):
+                            approved = result_holder.get('done', False)
+                            break
+                        # SSE comment as heartbeat - browsers ignore these lines
+                        yield ": heartbeat\n\n"
+                    else:
+                        approved = result_holder.get('done', False)
+
                     try:
                         next_item = agent_gen.send(approved)
                         if isinstance(next_item, dict):
@@ -129,6 +140,15 @@ def chat():
             if full_response:
                 add_conversation(user_message, full_response)
 
+        except GeneratorExit:
+            # Client disconnected (page refresh/close), clean up pending confirmations
+            with state.pending_lock:
+                expired = [cid for cid, info in state.pending_confirmations.items()]
+                for cid in expired:
+                    info = state.pending_confirmations.pop(cid, None)
+                    if info and info.get('event'):
+                        info['result']['done'] = False
+                        info['event'].set()
         except Exception as e:
             import traceback
             traceback.print_exc()
