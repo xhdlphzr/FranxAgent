@@ -192,7 +192,6 @@ class FranxAgent:
                  max_iterations=100,
                  temperature=0.8,
                  thinking=False,
-                 threshold=20,
                  knowledge_k=1):
         """
         Initialize the agent
@@ -203,7 +202,6 @@ class FranxAgent:
         self.max_iterations = max_iterations
         self.temperature = temperature
         self.thinking = thinking
-        self.threshold = threshold
         self.knowledge_k = knowledge_k   # Number of knowledge fragments to retrieve
 
         # Unified tool functions (include built-in + MCP)
@@ -253,171 +251,191 @@ class FranxAgent:
 
         iteration = 0
         while iteration < self.max_iterations:
-            # Call the model (based on thinking configuration)
-            if self.thinking:
-                stream = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=current_api_messages,
-                    temperature=self.temperature,
-                    tools=self.tools,
-                    tool_choice="auto",
-                    stream=True
-                )
-            else:
-                stream = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=current_api_messages,
-                    temperature=self.temperature,
-                    tools=self.tools,
-                    tool_choice="auto",
-                    stream=True,
-                    extra_body={"thinking": {"type": "disabled"}}
-                )
-
-            full_content = ""      # Accumulate complete response
-            tool_calls_data = {}   # Store tool call data
-
-            # Process streaming response
-            for chunk in stream:
-                delta = chunk.choices[0].delta
-
-                # Process text content
-                if delta.content:
-                    full_content += delta.content
-                    yield delta.content
-
-                # Process tool calls (incremental)
-                if delta.tool_calls:
-                    for tc in delta.tool_calls:
-                        idx = tc.index
-                        if idx not in tool_calls_data:
-                            # Initialize tool call object
-                            tool_calls_data[idx] = {
-                                "id": tc.id,
-                                "type": "function",
-                                "function": {"name": "", "arguments": ""}
-                            }
-                        if tc.function.name:
-                            tool_calls_data[idx]["function"]["name"] += tc.function.name
-                        if tc.function.arguments:
-                            tool_calls_data[idx]["function"]["arguments"] += tc.function.arguments
-
-            # Build complete assistant message
-            assistant_message = {
-                "role": "assistant",
-                "content": full_content,
-                "tool_calls": list(tool_calls_data.values()) if tool_calls_data else None
-            }
-            # Append to both current API messages and persistent history
-            current_api_messages.append(assistant_message)
-            self.messages.append(assistant_message)
-            
-            # If no tool calls, finish
-            if not tool_calls_data:
-                return
-
-            # Execute tool calls one by one
-            for tool_call in tool_calls_data.values():
-                func_name = tool_call["function"]["name"]
-                
-                try:
-                    arguments = json.loads(tool_call["function"]["arguments"])
-                except json.JSONDecodeError as e:
-                    # Feed error back to model and continue
-                    error_msg = f"JSON parsing error: {e}. Raw arguments: {tool_call['function']['arguments']}"
-                    tool_message = {
-                        "role": "tool",
-                        "tool_call_id": tool_call["id"],
-                        "content": error_msg
-                    }
-                    current_api_messages.append(tool_message)
-                    self.messages.append(tool_message)
-                    yield {
-                        "type": "tool_result",
-                        "call_id": tool_call["id"],
-                        "result": error_msg
-                    }
-                    continue
-
-                # If the model directly called a built-in tool name (e.g., time, read), automatically convert to tools call
-                if func_name != "tools" and "/" not in func_name:
-                    # Construct new arguments: tool_name is the original function name, arguments are the original parameters
-                    new_arguments = {"tool_name": func_name, "arguments": arguments}
-                    # Update tool_call object
-                    tool_call["function"]["name"] = "tools"
-                    tool_call["function"]["arguments"] = json.dumps(new_arguments, ensure_ascii=False)
-                    func_name = "tools"
-                    arguments = new_arguments
-
-                # Determine the actual tool name
-                actual_tool_name = None
-                if func_name == "tools":
-                    # Extract tool_name from arguments (when wrapped)
-                    actual_tool_name = arguments.get("tool_name")
+            try:
+                # Call the model (based on thinking configuration)
+                if self.thinking:
+                    stream = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=current_api_messages,
+                        temperature=self.temperature,
+                        tools=self.tools,
+                        tool_choice="auto",
+                        stream=True
+                    )
                 else:
-                    actual_tool_name = func_name
+                    stream = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=current_api_messages,
+                        temperature=self.temperature,
+                        tools=self.tools,
+                        tool_choice="auto",
+                        stream=True,
+                        extra_body={"thinking": {"type": "disabled"}}
+                    )
 
-                # 1. Send tool_call event first (shows "Using xxx...")
-                call_id = tool_call["id"]
-                yield {
-                    "type": "tool_call",
-                    "call_id": call_id,
-                    "tool_name": actual_tool_name,
-                    "arguments": arguments,
-                    "result": None # No result yet
+                full_content = ""      # Accumulate complete response
+                tool_calls_data = {}   # Store tool call data
+
+                # Process streaming response
+                for chunk in stream:
+                    delta = chunk.choices[0].delta
+
+                    # Process text content
+                    if delta.content:
+                        full_content += delta.content
+                        yield delta.content
+
+                    # Process tool calls (incremental)
+                    if delta.tool_calls:
+                        for tc in delta.tool_calls:
+                            idx = tc.index
+                            if idx not in tool_calls_data:
+                                # Initialize tool call object
+                                tool_calls_data[idx] = {
+                                    "id": tc.id,
+                                    "type": "function",
+                                    "function": {"name": "", "arguments": ""}
+                                }
+                            if tc.function.name:
+                                tool_calls_data[idx]["function"]["name"] += tc.function.name
+                            if tc.function.arguments:
+                                tool_calls_data[idx]["function"]["arguments"] += tc.function.arguments
+
+                # Build complete assistant message
+                assistant_message = {
+                    "role": "assistant",
+                    "content": full_content,
+                    "tool_calls": list(tool_calls_data.values()) if tool_calls_data else None
                 }
+                # Append to both current API messages and persistent history
+                current_api_messages.append(assistant_message)
+                
+                # If no tool calls, finish
+                if not tool_calls_data:
+                    self.messages.append(assistant_message)
+                    return
 
-                result = None
-                # 2. Check if confirmation is needed
-                if actual_tool_name in ("write", "command"):
-                    # Generate a unique confirmation ID
-                    confirm_id = str(uuid.uuid4())
-                    # 3. Send confirmation request event
-                    approved = yield {
-                        "type": "confirmation_required",
-                        "confirm_id": confirm_id,
+                # Execute tool calls one by one
+                tool_messages = []
+                for tool_call in tool_calls_data.values():
+                    func_name = tool_call["function"]["name"]
+                    
+                    try:
+                        arguments = json.loads(tool_call["function"]["arguments"])
+                    except json.JSONDecodeError as e:
+                        # Feed error back to model and continue
+                        error_msg = f"JSON parsing error: {e}. Raw arguments: {tool_call['function']['arguments']}"
+                        tool_message = {
+                            "role": "tool",
+                            "tool_call_id": tool_call["id"],
+                            "content": error_msg
+                        }
+                        current_api_messages.append(tool_message)
+                        yield {
+                            "type": "tool_result",
+                            "call_id": tool_call["id"],
+                            "result": error_msg
+                        }
+                        continue
+
+                    # If the model directly called a built-in tool name (e.g., time, read), automatically convert to tools call
+                    if func_name != "tools" and "/" not in func_name:
+                        # Construct new arguments: tool_name is the original function name, arguments are the original parameters
+                        new_arguments = {"tool_name": func_name, "arguments": arguments}
+                        # Update tool_call object
+                        tool_call["function"]["name"] = "tools"
+                        tool_call["function"]["arguments"] = json.dumps(new_arguments, ensure_ascii=False)
+                        func_name = "tools"
+                        arguments = new_arguments
+
+                    # Determine the actual tool name
+                    actual_tool_name = None
+                    if func_name == "tools":
+                        # Extract tool_name from arguments (when wrapped)
+                        actual_tool_name = arguments.get("tool_name")
+                    else:
+                        actual_tool_name = func_name
+
+                    # 1. Send tool_call event first (shows "Using xxx...")
+                    call_id = tool_call["id"]
+                    yield {
+                        "type": "tool_call",
                         "call_id": call_id,
                         "tool_name": actual_tool_name,
-                        "arguments": arguments
+                        "arguments": arguments,
+                        "result": None # No result yet
                     }
-                    if approved:
-                        # Execute the tool
+
+                    result = None
+                    # 2. Check if confirmation is needed
+                    if actual_tool_name in ("write", "command"):
+                        # Generate a unique confirmation ID
+                        confirm_id = str(uuid.uuid4())
+                        # 3. Send confirmation request event
+                        approved = yield {
+                            "type": "confirmation_required",
+                            "confirm_id": confirm_id,
+                            "call_id": call_id,
+                            "tool_name": actual_tool_name,
+                            "arguments": arguments
+                        }
+                        if approved:
+                            # Execute the tool
+                            func = self.tool_functions.get(func_name)
+                            if func:
+                                result = func(**arguments)
+                            else:
+                                result = f"Error: unknown tool {func_name}"
+                        else:
+                            # User rejected
+                            result = f"Tool '{actual_tool_name}' execution was rejected by the user."
+                    else:
+                        # Normal execution (no confirmation needed)
                         func = self.tool_functions.get(func_name)
                         if func:
                             result = func(**arguments)
                         else:
                             result = f"Error: unknown tool {func_name}"
-                    else:
-                        # User rejected
-                        result = f"Tool '{actual_tool_name}' execution was rejected by the user."
+
+                    # 4. Send tool result event (updates UI)
+                    yield {
+                        "type": "tool_result",
+                        "call_id": call_id,
+                        "result": str(result) if result is not None else "No result"
+                    }
+
+                    # Add tool execution result to both current API messages and persistent history
+                    tool_message = {
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": str(result)
+                    }
+                    current_api_messages.append(tool_message)
+                    tool_messages.append(tool_message)
+
+                self.messages.append(assistant_message)
+                self.messages.extend(tool_messages)
+                iteration += 1
+                
+            except Exception as e:
+                # If API call fails due to context length, compress and retry
+                error_str = str(e).lower()
+                if "context length" in error_str or "token" in error_str or "too long" in error_str:
+                    # Compress messages and retry
+                    self.memory()
+                    # Rebuild API messages with compressed history
+                    current_api_messages = [{"role": "system", "content": self.base_system_prompt}]
+                    if relevant:
+                        knowledge_text = "\n\n".join(relevant)
+                        current_api_messages.append({
+                            "role": "system",
+                            "content": f"## Related Content\n\n{knowledge_text}"
+                        })
+                    current_api_messages.extend(self.messages[1:])
+                    continue
                 else:
-                    # Normal execution (no confirmation needed)
-                    func = self.tool_functions.get(func_name)
-                    if func:
-                        result = func(**arguments)
-                    else:
-                        result = f"Error: unknown tool {func_name}"
-
-                # 4. Send tool result event (updates UI)
-                yield {
-                    "type": "tool_result",
-                    "call_id": call_id,
-                    "result": str(result) if result is not None else "No result"
-                }
-
-                # Add tool execution result to both current API messages and persistent history
-                tool_message = {
-                    "role": "tool",
-                    "tool_call_id": call_id,
-                    "content": str(result)
-                }
-                current_api_messages.append(tool_message)
-                self.messages.append(tool_message)
-
-            iteration += 1
-
-        # Max iterations reached
-        yield "Maximum iterations reached, task may be incomplete."
+                    # Re-raise other exceptions
+                    raise
 
     def summarize_msg(self, idx: int):
         """
@@ -440,10 +458,10 @@ class FranxAgent:
 
     def memory(self):
         """
-        Memory management: automatically compress when the message count exceeds the threshold
+        Memory management: automatically compress when context is too long
         """
-        if len(self.messages) <= self.threshold:
+        if len(self.messages) <= 5:  # Keep at least 5 messages (system + some context)
             return
-        # Consume the summary generator to complete compression (ignore output)
+        # Compress the oldest half of the conversation
         for _ in self.summarize_msg(len(self.messages) // 2 + 1):
             pass

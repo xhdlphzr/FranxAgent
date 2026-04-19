@@ -237,3 +237,7 @@
 - 更改 `README.md`。
 - 修复混合检索结果数量不足 `knowledge_k` 的问题：仅被 FTS 命中的文档在 RRF 融合时缺少文本内容，导致被过滤掉。
 - 修复 `command` 工具在 Linux/macOS 上报错的问题：`chcp 65001` 仅限 Windows，现在按平台条件执行。
+
+## [v4.15.3](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.15.3)
+- 实现上下文自动压缩，触发超长报错时智能压缩并重试。
+- 修复工具调用消息不匹配问题，解决中断导致的400崩溃。

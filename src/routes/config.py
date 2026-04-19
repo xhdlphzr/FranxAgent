@@ -19,14 +19,12 @@ from knowledge import add_conversation
 
 config_bp = Blueprint('config', __name__)
 
-
 @config_bp.route('/api/messages', methods=['GET'])
 @login_required
 def get_messages():
     if state.chat_agent is None:
         return jsonify({'error': 'Agent not initialized'}), 500
     return jsonify({'messages': state.chat_agent.messages.copy()})
-
 
 @config_bp.route('/api/save_partial', methods=['POST'])
 @login_required
@@ -46,10 +44,7 @@ def save_partial():
 
     add_conversation(user_message, partial_response)
 
-    state.chat_agent.memory()
-
     return jsonify({'status': 'ok'})
-
 
 @config_bp.route('/api/confirm_tool', methods=['POST'])
 @login_required
@@ -71,7 +66,6 @@ def confirm_tool():
 
     return jsonify({'status': 'ok'})
 
-
 @config_bp.route('/config', methods=['GET'])
 @login_required
 def get_config():
@@ -81,7 +75,6 @@ def get_config():
         return jsonify(config)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 
 @config_bp.route('/config', methods=['POST'])
 @login_required

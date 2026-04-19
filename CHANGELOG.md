@@ -236,3 +236,7 @@
 - Changed `README.md`.
 - Fix hybrid search returning fewer than `knowledge_k` results: FTS-only documents were missing their text content during RRF fusion, causing them to be filtered out.
 - Fix `command` tool failing on Linux/macOS: `chcp 65001` is Windows-only, now conditionally applied.
+
+## [v4.15.3](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.15.3)
+- Implemented automatic context compression, which intelligently compresses and retries on context length errors.
+- Resolved tool call message mismatch issue and fixed 400 crashes caused by interruptions.

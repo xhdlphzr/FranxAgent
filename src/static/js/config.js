@@ -127,7 +127,6 @@ async function loadConfig() {
             document.getElementById('temperature').value = config.temperature ?? 0.8;
             document.getElementById('thinking').checked = config.thinking ?? false;
             document.getElementById('max_iterations').value = config.max_iterations ?? 100;
-            document.getElementById('threshold').value = config.threshold ?? 20;
             document.getElementById('knowledge_k').value = config.knowledge_k ?? 1;
             const ett = config.tools?.ett || {};
             document.getElementById('ett_api_key').value = ett.api_key || '';
@@ -153,7 +152,6 @@ configForm.addEventListener('submit', async (e) => {
         temperature: parseFloat(document.getElementById('temperature').value),
         thinking: document.getElementById('thinking').checked,
         max_iterations: parseInt(document.getElementById('max_iterations').value),
-        threshold: parseInt(document.getElementById('threshold').value),
         knowledge_k: parseInt(document.getElementById('knowledge_k').value),
         tools: { ett: {
             api_key: document.getElementById('ett_api_key').value,
