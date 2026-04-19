@@ -6,20 +6,28 @@ FranxAgent is distributed in the hope that it will be useful, but WITHOUT ANY WA
 You should have received a copy of the GNU General Public License along with FranxAgent.  If not, see <https://www.gnu.org/licenses/>.
 -->
 
-### `write` — Write or append file content
+### `write` — Write, append, or edit file content
 - **Purpose**: Used when the user requests creating new files, writing content to existing files, or modifying files.
 - **Input**:
     ```json
     {
         "path": "Full path of the file",
         "content": "Content to write",
-        "mode": "overwrite" or "append"  // Default: "overwrite"
+        "mode": "overwrite" or "append" or "edit",
+        "line_start": 0,
+        "line_end": 0
     }
     ```
     - `path`: **string**, required, full path of the file
-    - `content`: **string**, required, content to be written
-    - `mode`: **string**, optional, default is "overwrite". Available values: "overwrite" for replacement, "append" for adding content
+    - `content`: **string**, required, content to be written. In edit mode, pass empty string to delete the target lines.
+    - `mode`: **string**, optional, default is "overwrite". Available values:
+        - `"overwrite"`: Replace entire file
+        - `"append"`: Append to end of file
+        - `"edit"`: Replace lines from `line_start` to `line_end` (both inclusive, 1-based). Use with `read` tool's line numbers for precise editing.
+    - `line_start`: **integer**, required in edit mode. Start line number (1-based, inclusive).
+    - `line_end`: **integer**, required in edit mode. End line number (1-based, inclusive).
 - **Output**: Prompt message indicating whether the operation succeeded or failed.
 - **Notes**:
     - Ensure the written content is explicitly requested by the user; do not modify files arbitrarily.
     - If the directory where the file is located does not exist, the tool will automatically create the directory (permissions required).
+    - In edit mode, always use `read` first to get the current line numbers, then specify the exact range to replace.

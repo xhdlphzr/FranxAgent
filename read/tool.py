@@ -16,6 +16,94 @@ import time
 from openai import OpenAI
 from markitdown import MarkItDown
 
+# tree-sitter core
+from tree_sitter import Language, Parser
+
+# Language grammars
+import tree_sitter_c as tsc
+import tree_sitter_cpp as tscpp
+import tree_sitter_python as tspython
+import tree_sitter_java as tsjava
+import tree_sitter_rust as tsrust
+import tree_sitter_go as tsgo
+import tree_sitter_javascript as tsjs
+import tree_sitter_html as tshtml
+import tree_sitter_css as tscss
+import tree_sitter_typescript as tstypescript
+import tree_sitter_c_sharp as tscs
+
+# Language registry: suffix -> (Language, target_node_types)
+LANGUAGES = {
+    '.py': (Language(tspython.language()), ['function_definition', 'class_definition', 'import_statement', 'import_from_statement']),
+    '.pyw': (Language(tspython.language()), ['function_definition', 'class_definition', 'import_statement', 'import_from_statement']),
+    '.js': (Language(tsjs.language()), ['function_declaration', 'class_declaration', 'import_statement', 'export_statement', 'lexical_declaration', 'variable_declaration']),
+    '.jsx': (Language(tsjs.language()), ['function_declaration', 'class_declaration', 'import_statement', 'export_statement']),
+    '.ts': (Language(tstypescript.language_typescript()), ['function_declaration', 'class_declaration', 'interface_declaration', 'type_alias_declaration', 'import_statement', 'export_statement', 'abstract_class_declaration', 'lexical_declaration']),
+    '.tsx': (Language(tstypescript.language_tsx()), ['function_declaration', 'class_declaration', 'interface_declaration', 'type_alias_declaration', 'import_statement', 'export_statement']),
+    '.rs': (Language(tsrust.language()), ['function_item', 'impl_item', 'struct_item', 'enum_item', 'trait_item', 'use_declaration', 'mod_item']),
+    '.go': (Language(tsgo.language()), ['function_declaration', 'method_declaration', 'type_declaration', 'import_declaration']),
+    '.java': (Language(tsjava.language()), ['class_declaration', 'method_declaration', 'interface_declaration', 'import_declaration', 'constructor_declaration']),
+    '.c': (Language(tsc.language()), ['function_definition', 'struct_specifier', 'enum_specifier', 'preproc_include', 'type_definition']),
+    '.h': (Language(tsc.language()), ['function_definition', 'struct_specifier', 'enum_specifier', 'preproc_include', 'type_definition']),
+    '.cpp': (Language(tscpp.language()), ['function_definition', 'class_specifier', 'struct_specifier', 'namespace_definition', 'preproc_include', 'template_declaration']),
+    '.hpp': (Language(tscpp.language()), ['function_definition', 'class_specifier', 'struct_specifier', 'namespace_definition', 'preproc_include', 'template_declaration']),
+    '.cc': (Language(tscpp.language()), ['function_definition', 'class_specifier', 'struct_specifier', 'namespace_definition', 'preproc_include', 'template_declaration']),
+    '.cs': (Language(tscs.language()), ['class_declaration', 'method_declaration', 'interface_declaration', 'namespace_declaration', 'using_directive', 'struct_declaration', 'enum_declaration']),
+    '.html': (Language(tshtml.language()), ['element']),
+    '.htm': (Language(tshtml.language()), ['element']),
+    '.css': (Language(tscss.language()), ['rule_set']),
+}
+
+def _extract_name(node) -> str:
+    """Extract the name of an AST node using tree-sitter fields"""
+    # Prefer 'name' field (works for most languages' class, function, method, etc.)
+    name_node = node.child_by_field_name('name')
+    if name_node:
+        return name_node.text.decode('utf-8')
+    
+    # Fallback: for import, export, namespace etc. that lack a name field
+    for child in node.children:
+        if child.type in ('identifier', 'type_identifier', 'field_identifier'):
+            return child.text.decode('utf-8')
+    return ""
+
+def _parse_structure(path: Path, content: str) -> str | None:
+    """Parse code file structure, return skeleton summary"""
+    suffix = path.suffix.lower()
+    if suffix not in LANGUAGES:
+        return None
+
+    lang, target_types = LANGUAGES[suffix]
+    parser = Parser(lang)
+
+    tree = parser.parse(content.encode('utf-8'))
+    
+    lines = []
+    def walk(node, depth=0):
+        if node.type in target_types:
+            start = node.start_point.row + 1
+            end = node.end_point.row + 1
+            name = _extract_name(node)
+            display_name = f" {name}" if name else ""
+            prefix = "  " * depth + ("├─ " if depth > 0 else "")
+            lines.append(f"{prefix}[{node.type}]{display_name} (L{start}-L{end})")
+            # Target node found, continue into its children with depth + 1
+            for child in node.children:
+                walk(child, depth + 1)
+        else:
+            # Non-target node, continue walking children without increasing depth
+            for child in node.children:
+                walk(child, depth)
+
+    walk(tree.root_node)
+    return "\n".join(lines) if lines else None
+
+def _add_line_numbers(content: str) -> str:
+    """Add line numbers to text"""
+    lines = content.split('\n')
+    width = len(str(len(lines)))
+    return '\n'.join(f"{i+1:{width}}  {line}" for i, line in enumerate(lines))
+
 def read(path: str) -> str:
     """
     Read file content
@@ -41,7 +129,18 @@ def read(path: str) -> str:
         # Read file content
         with open(p, 'r', encoding='utf-8') as f:
             content = f.read()
-        return content
+
+        # Three-tier fallback: parsed + numbered -> numbered only -> raw text
+        try:
+            structure = _parse_structure(p, content)
+            numbered = _add_line_numbers(content)
+            if structure:
+                return f"structure\n{structure}\n\ncontent\n{numbered}"
+            else:
+                return numbered
+        except Exception:
+            return content
+
     except PermissionError:
         return f"Error: No permission to read the file - {path}"
     except Exception as e:
@@ -119,13 +218,13 @@ def ett(urls: str) -> str:
                 messages=messages,
                 temperature=cfg["temperature"],
                 stream=False,
-                timeout=60.0,   # Request timeout | 超时
+                timeout=60.0,   # Request timeout
                 extra_body={"thinking": {"type": "disabled"}} if not cfg["thinking"] else None
             )
             return response.choices[0].message.content
         except Exception as e:
             error_msg = str(e)
-            # Judge temporary errors: 429、500、timeout or rate limit keywords
+            # Judge temporary errors: 429, 500, timeout or rate limit keywords
             if any(code in error_msg for code in ["429", "500", "timed out", "timeout"]) or "rate" in error_msg.lower() or "too many" in error_msg.lower():
                 if attempt < max_retries - 1:
                     wait = base_delay * (2 ** attempt)

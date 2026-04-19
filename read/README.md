@@ -15,5 +15,5 @@ You should have received a copy of the GNU General Public License along with Fra
 }
 ```
     - `path`: **string**, required. The path can be an absolute path, or a relative path based on the current working directory.
-- **Output**: File content (text format) or image/video description (if the file is an image or video file). An error message will be returned if the file does not exist or cannot be read.
+- **Output**: File content (text format) with line numbers and structure (if the file is an code file) or image/video description (if the file is an image or video file). An error message will be returned if the file does not exist or cannot be read.
 - **Notes**: This tool is read-only and will not modify the file. Ensure the path is correct; confirm the file location via other methods if necessary.
