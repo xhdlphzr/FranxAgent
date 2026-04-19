@@ -233,4 +233,5 @@
 ## [v4.15.2](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.15.2)
 - 修复知识面板在页面刷新时消失的问题。
 - 修复刷新页面导致 Agent 卡死的问题：增加 SSE 心跳检测客户端断开，避免确认等待时线程死锁。
-- 调整 `src/agent.py` 中的 `USER_GUIDE`
+- 调整 `src/agent.py` 中的 `USER_GUIDE`。
+- 更改 `README.md`。

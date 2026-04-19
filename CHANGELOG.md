@@ -233,3 +233,4 @@
 - Fixed knowledge panel disappearing on page refresh in `src/static/js/chat.js`.
 - Fixed agent freezing on page refresh: added SSE heartbeat to detect client disconnect, preventing thread deadlock during confirmation waits.
 - Adjusted `src/agent.py` `USER_GUIDE` .
+- Changed `README.md`.
