@@ -6,7 +6,7 @@ FranxAgent is distributed in the hope that it will be useful, but WITHOUT ANY WA
 You should have received a copy of the GNU General Public License along with FranxAgent.  If not, see <https://www.gnu.org/licenses/>.
 -->
 
-### beijing_subway — Beijing Subway Transfer Assistant | 北京地铁换乘助手
+### beijing_subway — Beijing Subway Transfer Assistant
 - **Purpose**: Plan the optimal transfer route (shortest travel time) for the Beijing Subway from the starting station to the destination based on departure time. It automatically adapts to speed differences during morning and evening rush hours, as well as transfer time penalties.
 - **Input Parameters**:
     - `start`: **str**, name of the starting station, example: `"Xizhimen"`

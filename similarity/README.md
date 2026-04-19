@@ -6,7 +6,7 @@ FranxAgent is distributed in the hope that it will be useful, but WITHOUT ANY WA
 You should have received a copy of the GNU General Public License along with FranxAgent.  If not, see <https://www.gnu.org/licenses/>.
 -->
 
-### `similarity` - Detect String Similarity | 检测字符串相似度
+### `similarity` - Detect String Similarity
 - **Purpose**
 Calculate the similarity between two strings under a fixed sliding window (fixed window size: 3 bytes, based on rolling hash). Suitable for scenarios such as local text duplicate detection and filename comparison.
 

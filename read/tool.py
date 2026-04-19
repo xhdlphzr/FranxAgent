@@ -5,8 +5,8 @@
 # You should have received a copy of the GNU General Public License along with FranxAgent.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-File Content Reading Tool | 读取文件内容工具
-Allows the AI to read the content of a specified file | 允许AI读取指定文件的内容
+File Content Reading Tool
+Allows the AI to read the content of a specified file
 """
 
 from pathlib import Path
@@ -18,40 +18,40 @@ from markitdown import MarkItDown
 
 def read(path: str) -> str:
     """
-    Read file content | 读取文件内容
+    Read file content
 
     Args:
-        path: Full path of the file | 文件的完整路径
+        path: Full path of the file
 
     Returns:
-        File content, returns error message if an error occurs | 文件内容，如果出错则返回错误信息
+        File content, returns error message if an error occurs
     """
     try:
-        # Resolve the path and handle user directory symbol (~) | 解析路径，处理用户目录符号(~)
+        # Resolve the path and handle user directory symbol (~)
         p = Path(path).expanduser().resolve()
 
-        # Check if the file exists | 检查文件是否存在
+        # Check if the file exists
         if not p.exists():
-            return f"Error: File does not exist - {p} | 错误：文件不存在 - {p}"
+            return f"Error: File does not exist - {p}"
 
-        # Check if the path is a file | 检查路径是否为文件
+        # Check if the path is a file
         if not p.is_file():
-            return f"Error: Path is not a file - {p} | 错误：路径不是文件 - {p}"
+            return f"Error: Path is not a file - {p}"
 
-        # Read file content | 读取文件内容
+        # Read file content
         with open(p, 'r', encoding='utf-8') as f:
             content = f.read()
         return content
     except PermissionError:
-        return f"Error: No permission to read the file - {path} | 错误：没有权限读取文件 - {path}"
+        return f"Error: No permission to read the file - {path}"
     except Exception as e:
-        return f"An error occurred while reading the file: {str(e)} | 读取文件时发生错误：{str(e)}"
+        return f"An error occurred while reading the file: {str(e)}"
     
 def _get_config():
-    """Read ett tool configuration from config.json | 从 config.json 读取 ett 工具配置"""
+    """Read ett tool configuration from config.json"""
     config_path = Path(__file__).parent.parent.parent / "config.json"
     if not config_path.exists():
-        raise FileNotFoundError("config.json not found | 未找到 config.json")
+        raise FileNotFoundError("config.json not found")
     with open(config_path, 'r', encoding='utf-8') as f:
         full_config = json.load(f)
     tool_cfg = full_config.get("tools", {}).get("ett", {})
@@ -65,7 +65,7 @@ def _get_config():
     }
 
 def _encode_local_file(path: str) -> str:
-    """Convert local file to data URL | 将本地文件转为 data URL"""
+    """Convert local file to data URL"""
     with open(path, "rb") as f:
         data = base64.b64encode(f.read()).decode("utf-8")
     ext = Path(path).suffix.lower()
@@ -78,14 +78,14 @@ def _encode_local_file(path: str) -> str:
 
 def ett(urls: str) -> str:
     cfg = _get_config()
-    prompt = "Please describe the following content in detail | 请详细描述以下内容"
+    prompt = "Please describe the following content in detail"
     if urls.endswith(('.jpg', '.png', '.gif', '.jpeg')):
         ftype = "image_url"
     if urls.endswith(('.mp4', '.webm')):
         ftype = "video_url"
     client = OpenAI(api_key=cfg["api_key"], base_url=cfg["base_url"])
 
-    # Parse URLs | 解析 URLs
+    # Parse URLs
     url_list = [u.strip() for u in urls.split(",") if u.strip()]
     processed_urls = []
     for url in url_list:
@@ -93,13 +93,13 @@ def ett(urls: str) -> str:
             processed_urls.append(url)
         else:
             try:
-                print("Encoding local file to base64, large files may take time please wait... | 本地文件base64转码中，如果是大文件，可能需要较长时间，请稍后...")
+                print("Encoding local file to base64, large files may take time please wait...")
                 data_url = _encode_local_file(url)
                 processed_urls.append(data_url)
             except Exception as e:
-                return f"Failed to process local file: {e} | 处理本地文件失败: {e}"
+                return f"Failed to process local file: {e}"
 
-    # Build content structure | 构建 content
+    # Build content structure
     content = []
     for u in processed_urls:
         if ftype == "image_url":
@@ -125,26 +125,26 @@ def ett(urls: str) -> str:
             return response.choices[0].message.content
         except Exception as e:
             error_msg = str(e)
-            # Judge temporary errors: 429、500、timeout or rate limit keywords | 判断临时错误：429、500、timeout 或 rate/too many 关键词
+            # Judge temporary errors: 429、500、timeout or rate limit keywords
             if any(code in error_msg for code in ["429", "500", "timed out", "timeout"]) or "rate" in error_msg.lower() or "too many" in error_msg.lower():
                 if attempt < max_retries - 1:
                     wait = base_delay * (2 ** attempt)
-                    print(f"Temporary API error, retry after {wait} seconds... | API 临时错误，等待 {wait} 秒后重试...")
+                    print(f"Temporary API error, retry after {wait} seconds...")
                     time.sleep(wait)
                     continue
                 else:
-                    return "Analysis failed: API busy or timeout, please try again later. Copy content as text or screenshot to retry. | 分析失败: 当前 API 服务繁忙或超时，请稍后再试。建议将文件内容复制为文本或截图后重新发送。"
+                    return "Analysis failed: API busy or timeout, please try again later. Copy content as text or screenshot to retry."
             else:
-                return f"Analysis failed: {e} | 分析失败: {e}"
+                return f"Analysis failed: {e}"
 
-    return "Analysis failed: Maximum retries exceeded, please try again later. | 分析失败: 超过重试次数，请稍后再试。"
+    return "Analysis failed: Maximum retries exceeded, please try again later."
 
 def execute(path: str) -> str:
     if path.endswith(('.pdf', '.docx', '.pptx', '.xlsx', '.xls', '.doc', '.ppt', '.csv')):
         try:
             return MarkItDown().convert(path).text_content
         except Exception as e:
-            return f"Failed to convert file to Markdown: {e} | 转换文件为 Markdown 失败: {e}"
+            return f"Failed to convert file to Markdown: {e}"
     elif path.endswith(('.jpg', '.png', '.gif', '.mp4', '.webm', '.jpeg')):
         return ett(path)
     else:
