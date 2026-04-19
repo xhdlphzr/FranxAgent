@@ -6,53 +6,52 @@ See the file COPYING for copying conditions.
 
 ### Coding Process (Skill)
 
-A universal workflow for turning ideas into reliable code.
+A universal workflow for turning ideas into reliable code, using FranxAgent's tools.
 
-#### 1. Think
-- Understand the problem before touching the keyboard
-- Ask: What is the input? What is the expected output? What can go wrong?
-- Sketch the approach in your head — if you can't explain it simply, you don't understand it yet
-- Identify dependencies: what do you need that doesn't exist yet?
-- Consider alternatives — the first idea is rarely the best
+#### 1. Understand the Landscape
+- Read the project structure first: `read("./project-root")` — see what files exist, what classes and functions are already defined
+- Then read specific files: `read("./src/agent.py")` — get the AST skeleton + line-numbered content
+- Use the structure section to navigate: find the function you need, note its line range, then read the content at those lines
+- Understand the problem before touching the keyboard — if you can't explain it simply, you don't understand it yet
 
-#### 2. Document
-- Write down the plan before coding — even a few lines save hours of confusion
-- Define the interface: function signatures, data structures, API contracts
+#### 2. Read Source Code
+- When learning an unfamiliar codebase, start from the project structure: `read("./project-root")` to get the full map
+- Use the AST skeleton to trace call chains: find the entry point, then follow function names to their definitions in other files
+- Focus on structure first, details second — the skeleton tells you what exists and where; only read the full content of the parts you need
+- When reading a dependency or library source, look for the main module file first, then drill down into specific functions
+- Pay attention to type signatures, class hierarchies, and import relationships — these reveal architecture
+- If the code is unclear, re-read the surrounding context: the function above, the class it belongs to, the file that imports it
+
+#### 3. Plan
+- Define the change: which files, which functions, which lines
+- Use the line numbers from `read`'s output to identify exact edit targets
 - List the steps in order — this becomes your roadmap
-- Note assumptions and risks — things you might forget later
-- If the task is complex, write a brief design doc; if simple, a comment block is enough
+- For complex tasks, sketch the approach first: what needs to be added, modified, or removed
+- Identify dependencies: what do you need that doesn't exist yet?
 
-#### 3. Code
-- Follow the plan — don't gold-plate or scope-creep mid-implementation
-- Write the happy path first, then handle edge cases
-- Keep functions short — one function, one responsibility
-- Name things clearly — code is read 10x more than it's written
-- Reuse before you create — check if a library or existing function already does the job
-- Commit incrementally — small working steps beat one big bang
+#### 4. Edit Precisely
+- Use `write` in `edit` mode with `line_start` and `line_end` from `read`'s output
+- Replace only the lines that need changing — don't rewrite entire files
+- Edit one change at a time, verify the result, then proceed to the next
+- When adding new functions or classes, use `edit` to insert at the right position (specify line range to split)
+- For new files, use `write` in `overwrite` mode
 
-#### 4. Review
-- Read your own code before running it — catch the obvious mistakes first
-- Check: Does it match the documented plan? Did you miss any steps?
-- Check: Are there unhandled edge cases? Empty inputs? Null values? Off-by-one errors?
-- Check: Did you introduce unnecessary complexity? Can anything be removed?
-- If the change affects others, think about backward compatibility
-
-#### 5. Run & Test
-- Run it — does it do what you expected?
-- Test the edge cases you identified in step 1
-- Test the failure paths — what happens when things go wrong?
-- If there's a bug, reproduce it before fixing — don't guess
+#### 5. Verify
+- After each edit, re-`read` the modified file to confirm the change landed correctly
+- Check line alignment: did the edit shift subsequent line numbers? If so, re-read before the next edit
+- Run the code: use `command` to execute tests or run the program
+- If there's a bug, re-read the relevant section — don't guess from memory
 - Fix the root cause, not the symptom
 
 #### 6. Clean Up
 - Remove debug logs, commented-out code, and temporary hacks
-- Ensure naming is consistent and intentions are clear
-- Add comments only where code can't explain itself — good code is self-documenting
-- Update related documentation if behavior changed
+- Re-read the final version of each modified file to ensure consistency
+- If the change adds new knowledge worth remembering, use `add_skill` to save it
 
 #### Core Principles
-- **Think first, code second** — an hour of thinking saves a day of debugging
-- **Plan before you build** — a map keeps you from getting lost
-- **Small steps, fast feedback** — working incrementally beats working perfectly
-- **Simplicity wins** — the best solution is the simplest one that works
+- **Read before write** — always understand the current state before changing it
+- **Edit by line, not by file** — surgical precision beats wholesale rewriting
+- **One change, one verify** — small steps with confirmation beat big bangs with surprises
+- **Structure first, details second** — use the AST skeleton to navigate, then dive into specifics
+- **Trace the chain** — follow function calls across files to understand how code connects
 - **Fix causes, not symptoms** — patches rot, solutions last
