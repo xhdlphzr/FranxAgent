@@ -305,7 +305,25 @@ class FranxAgent:
             # Execute tool calls one by one
             for tool_call in tool_calls_data.values():
                 func_name = tool_call["function"]["name"]
-                arguments = json.loads(tool_call["function"]["arguments"])
+                
+                try:
+                    arguments = json.loads(tool_call["function"]["arguments"])
+                except json.JSONDecodeError as e:
+                    # Feed error back to model and continue
+                    error_msg = f"JSON parsing error: {e}. Raw arguments: {tool_call['function']['arguments']}"
+                    tool_message = {
+                        "role": "tool",
+                        "tool_call_id": tool_call["id"],
+                        "content": error_msg
+                    }
+                    current_api_messages.append(tool_message)
+                    self.messages.append(tool_message)
+                    yield {
+                        "type": "tool_result",
+                        "call_id": tool_call["id"],
+                        "result": error_msg
+                    }
+                    continue
 
                 # If the model directly called a built-in tool name (e.g., time, read), automatically convert to tools call
                 if func_name != "tools" and "/" not in func_name:
