@@ -93,8 +93,8 @@ For tools that require parameters, `arguments` must be a JSON object containing 
         "path": "Full path of the file",
         "content": "Content to write",
         "mode": "overwrite" or "append" or "edit",
-        "start_line": 0,
-        "end_line": 0
+        "line_start": 0,
+        "line_end": 0
     }
     ```
     - `path`: **string**, required, full path of the file
@@ -102,9 +102,9 @@ For tools that require parameters, `arguments` must be a JSON object containing 
     - `mode`: **string**, optional, default is "overwrite". Available values:
         - `"overwrite"`: Replace entire file
         - `"append"`: Append to end of file
-        - `"edit"`: Replace lines from `start_line` to `end_line` (both inclusive, 1-based). Use with `read` tool's line numbers for precise editing.
-    - `start_line`: **integer**, required in edit mode. Start line number (1-based, inclusive).
-    - `end_line`: **integer**, required in edit mode. End line number (1-based, inclusive).
+        - `"edit"`: Replace lines from `line_start` to `line_end` (both inclusive, 1-based). Use with `read` tool's line numbers for precise editing.
+    - `line_start`: **integer**, required in edit mode. Start line number (1-based, inclusive).
+    - `line_end`: **integer**, required in edit mode. End line number (1-based, inclusive).
 - **Output**: Prompt message indicating whether the operation succeeded or failed.
 - **Notes**:
     - Ensure the written content is explicitly requested by the user; do not modify files arbitrarily.
@@ -318,99 +318,106 @@ class FranxAgent:
                 # Execute tool calls one by one
                 tool_messages = []
                 for tool_call in tool_calls_data.values():
-                    func_name = tool_call["function"]["name"]
-                    
+                    tool_message = None
                     try:
-                        arguments = json.loads(tool_call["function"]["arguments"])
-                    except json.JSONDecodeError as e:
-                        # Feed error back to model and continue
-                        error_msg = f"JSON parsing error: {e}. Raw arguments: {tool_call['function']['arguments']}"
-                        tool_message = {
-                            "role": "tool",
-                            "tool_call_id": tool_call["id"],
-                            "content": error_msg
-                        }
-                        tool_messages.append(tool_message)
+                        func_name = tool_call["function"]["name"]
+                        
+                        try:
+                            arguments = json.loads(tool_call["function"]["arguments"])
+                        except json.JSONDecodeError as e:
+                            # Feed error back to model and continue
+                            raise ValueError(f"JSON parsing error: {e}. Raw arguments: {tool_call['function']['arguments']}")
+
+                        # If the model directly called a built-in tool name (e.g., time, read), automatically convert to tools call
+                        if func_name != "tools" and "/" not in func_name:
+                            # Construct new arguments: tool_name is the original function name, arguments are the original parameters
+                            new_arguments = {"tool_name": func_name, "arguments": arguments}
+                            # Update tool_call object
+                            tool_call["function"]["name"] = "tools"
+                            tool_call["function"]["arguments"] = json.dumps(new_arguments, ensure_ascii=False)
+                            func_name = "tools"
+                            arguments = new_arguments
+
+                        # Determine the actual tool name
+                        actual_tool_name = None
+                        if func_name == "tools":
+                            # Extract tool_name from arguments (when wrapped)
+                            actual_tool_name = arguments.get("tool_name")
+                        else:
+                            actual_tool_name = func_name
+
+                        # 1. Send tool_call event first (shows "Using xxx...")
+                        call_id = tool_call["id"]
                         yield {
-                            "type": "tool_result",
-                            "call_id": tool_call["id"],
-                            "result": error_msg
-                        }
-                        continue
-
-                    # If the model directly called a built-in tool name (e.g., time, read), automatically convert to tools call
-                    if func_name != "tools" and "/" not in func_name:
-                        # Construct new arguments: tool_name is the original function name, arguments are the original parameters
-                        new_arguments = {"tool_name": func_name, "arguments": arguments}
-                        # Update tool_call object
-                        tool_call["function"]["name"] = "tools"
-                        tool_call["function"]["arguments"] = json.dumps(new_arguments, ensure_ascii=False)
-                        func_name = "tools"
-                        arguments = new_arguments
-
-                    # Determine the actual tool name
-                    actual_tool_name = None
-                    if func_name == "tools":
-                        # Extract tool_name from arguments (when wrapped)
-                        actual_tool_name = arguments.get("tool_name")
-                    else:
-                        actual_tool_name = func_name
-
-                    # 1. Send tool_call event first (shows "Using xxx...")
-                    call_id = tool_call["id"]
-                    yield {
-                        "type": "tool_call",
-                        "call_id": call_id,
-                        "tool_name": actual_tool_name,
-                        "arguments": arguments,
-                        "result": None # No result yet
-                    }
-
-                    result = None
-                    # 2. Check if confirmation is needed
-                    if actual_tool_name in ("write", "command"):
-                        # Generate a unique confirmation ID
-                        confirm_id = str(uuid.uuid4())
-                        # 3. Send confirmation request event
-                        approved = yield {
-                            "type": "confirmation_required",
-                            "confirm_id": confirm_id,
+                            "type": "tool_call",
                             "call_id": call_id,
                             "tool_name": actual_tool_name,
-                            "arguments": arguments
+                            "arguments": arguments,
+                            "result": None # No result yet
                         }
-                        if approved:
-                            # Execute the tool
+
+                        result = None
+                        # 2. Check if confirmation is needed
+                        if actual_tool_name in ("write", "command"):
+                            # Generate a unique confirmation ID
+                            confirm_id = str(uuid.uuid4())
+                            # 3. Send confirmation request event
+                            approved = yield {
+                                "type": "confirmation_required",
+                                "confirm_id": confirm_id,
+                                "call_id": call_id,
+                                "tool_name": actual_tool_name,
+                                "arguments": arguments
+                            }
+                            if approved:
+                                # Execute the tool
+                                func = self.tool_functions.get(func_name)
+                                if func:
+                                    result = func(**arguments)
+                                else:
+                                    result = f"Error: unknown tool {func_name}"
+                            else:
+                                # User rejected
+                                result = f"Tool '{actual_tool_name}' execution was rejected by the user."
+                        else:
+                            # Normal execution (no confirmation needed)
                             func = self.tool_functions.get(func_name)
                             if func:
                                 result = func(**arguments)
                             else:
                                 result = f"Error: unknown tool {func_name}"
-                        else:
-                            # User rejected
-                            result = f"Tool '{actual_tool_name}' execution was rejected by the user."
-                    else:
-                        # Normal execution (no confirmation needed)
-                        func = self.tool_functions.get(func_name)
-                        if func:
-                            result = func(**arguments)
-                        else:
-                            result = f"Error: unknown tool {func_name}"
 
-                    # 4. Send tool result event (updates UI)
-                    yield {
-                        "type": "tool_result",
-                        "call_id": call_id,
-                        "result": str(result) if result is not None else "No result"
-                    }
+                        # 4. Send tool result event (updates UI)
+                        yield {
+                            "type": "tool_result",
+                            "call_id": call_id,
+                            "result": str(result) if result is not None else "No result"
+                        }
 
-                    # Add tool execution result to both current API messages and persistent history
-                    tool_message = {
-                        "role": "tool",
-                        "tool_call_id": call_id,
-                        "content": str(result)
-                    }
-                    tool_messages.append(tool_message)
+                        # Add tool execution result to both current API messages and persistent history
+                        tool_message = {
+                            "role": "tool",
+                            "tool_call_id": call_id,
+                            "content": str(result)
+                        }
+                    except Exception as e:
+                        # Catch any exception (including from tool functions) and turn into error message
+                        error_content = f"Tool execution error: {type(e).__name__}: {str(e)}"
+                        # Try to get call_id if available, otherwise use fallback
+                        call_id = tool_call.get("id", "unknown")
+                        yield {
+                            "type": "tool_result",
+                            "call_id": call_id,
+                            "result": error_content
+                        }
+                        tool_message = {
+                            "role": "tool",
+                            "tool_call_id": call_id,
+                            "content": error_content
+                        }
+                    finally:
+                        if tool_message:
+                            tool_messages.append(tool_message)
 
                 current_api_messages.extend(tool_messages)
                 self.messages.append(assistant_message)
