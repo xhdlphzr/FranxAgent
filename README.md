@@ -20,7 +20,7 @@ FranxAgent is a lightweight AI agent framework that enables AI to read files, ex
 ## ✨ Core Features
 
 - 📱 **Zero‑configuration remote access**: integrated Cloudflare Tunnel – one‑click public URL, no public IP or router settings needed. Access FranxAgent on your computer directly from your phone/tablet.
-- 🔐 **Military‑grade security authentication**: RSA asymmetric encryption + JWT short‑lived tokens, supports “refresh‑to‑re‑login” (token stored only in memory, cleared on page refresh), completely prevents long‑term control after token leakage.
+- 🔐 **Military‑grade security authentication**: RSA asymmetric encryption + JWT short‑lived tokens, supports "refresh‑to‑re‑login" (token stored only in memory, cleared on page refresh), completely prevents long‑term control after token leakage.
 - 🧠 **Intelligent memory & hybrid search**: conversation history automatically stored in vector database, combined with FTS5 keyword search for precise cross‑session recall.
 - 🛠️ **Rich built‑in tools**: `time`, `read`, `write`, `command`, `search`, `similarity`, `ett` (multimodal understanding), `beijing_subway`, etc., extensible.
 - 🌐 **MCP protocol support**: integrate any stdio MCP server with a simple configuration – AI automatically learns to use all its tools.
@@ -56,7 +56,7 @@ After startup, the terminal will display a public URL (e.g. `https://xxxx.tryclo
 > 💡 **Security tip**: JWT tokens are valid for only 1 hour and are stored only in browser memory – they are lost on page refresh. Do not use remote access on public computers.
 
 ### 5. Use
-Type your question in the chat box – the AI will automatically call tools to help you. The mobile experience is identical to the desktop version, with touch, swipe, and voice input support (via the phone’s own input methods).
+Type your question in the chat box – the AI will automatically call tools to help you. The mobile experience is identical to the desktop version, with touch, swipe, and voice input support (via the phone's own input methods).
 
 ---
 
@@ -81,7 +81,7 @@ In `config.json`, you can adjust the following parameters:
 | `api_key` | string | - | API key (required). For Ollama, any value works. |
 | `base_url` | string | - | API base URL (required). For Ollama: `http://localhost:11434/v1`, for GLM: `https://open.bigmodel.cn/api/paas/v4`. |
 | `model` | string | - | Model name (required). Recommended: `glm-4.7-flash`, `qwen2.5:7b`, etc. |
-| `settings` | string | `"You are a helpful AI assistant."` | System prompt defining AI’s role or behaviour. |
+| `settings` | string | `"You are a helpful AI assistant."` | System prompt defining AI's role or behaviour. |
 | `temperature` | float | `0.8` | Randomness, range 0–2 (but recommended 0–1). Lower = more deterministic, higher = more creative. |
 | `thinking` | bool | `false` | Enable deep thinking mode (GLM models only). The model outputs reasoning steps but responds slightly slower. |
 | `max_iterations` | int | `100` | Max tool call iterations to prevent infinite loops. |
@@ -153,8 +153,8 @@ Inside the `tools` field, you can specify separate parameters for `ett` (multimo
 | Tool | Purpose | Security / Notes |
 |------|---------|------------------|
 | `time` | Current date/time | Read‑only, safe |
-| `read` | Read file content | Read‑only, returns file content |
-| `write` | Write/append to file | Auto‑creates parent directories; overwrite/append options |
+| `read` | Read file content or project structure | Read‑only. Code files return AST structure + line‑numbered content; directories return project skeleton. Supports documents, images, videos. |
+| `write` | Write, append, or edit files | Auto‑creates parent directories. Edit mode replaces lines by line number range. Overwrite/append options. |
 | `command` | Execute system command | ❌ Direct deletion blocked; suggests moving instead. Supports timeout. |
 | `search` | Web search (DuckDuckGo) | Free, no API key. Returns title, snippet, URL. |
 | `add_skill` | Save a reusable skill | Saves Markdown skill file and immediately indexes it into the vector database. Zero restart, real‑time retrieval. No confirmation needed. |
@@ -172,7 +172,7 @@ Add any MCP server (stdio mode) in `config.json`:
     ]
 }
 ```
-After startup, the AI automatically discovers all tools from these servers and calls them via the unified `tools` tool. No extra configuration – just say “take a screenshot”.
+After startup, the AI automatically discovers all tools from these servers and calls them via the unified `tools` tool. No extra configuration – just say "take a screenshot".
 
 **Remote hardware (e.g., Raspberry Pi)**  
 To control remote hardware via SSH, add a configuration like:
@@ -265,13 +265,13 @@ User:
 ```
 What is in this picture? https://example.com/dog.jpg
 ```
-AI: Calls `tools(tool_name="ett", arguments={"url": "https://example.com/dog.jpg", "prompt": "What is in this picture?", "type": "image_url"})`, returns description.
+AI: Calls `tools(tool_name="read", arguments={"path": "https://example.com/dog.jpg"})`, returns description.
 
 User:
 ```
 Analyze the content of this Word document (local path provided)
 ```
-AI: Calls `tools(tool_name="ett", arguments={"url": "C:/docs/report.docx", "prompt": "Analyze this document", "type": "file_url"})`, returns summary.
+AI: Calls `tools(tool_name="read", arguments={"path": "C:/docs/report.docx"})`, returns summary.
 
 User:
 ```

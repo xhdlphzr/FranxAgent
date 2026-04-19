@@ -5,39 +5,73 @@
 # You should have received a copy of the GNU General Public License along with FranxAgent.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-File Write Tool | 写入文件工具
-Allows the AI to write or append content to a specified file | 允许AI写入或追加内容到指定文件
+File Write Tool
+Allows the AI to write, append, or edit content in a specified file
 """
 
 from pathlib import Path
 
-def execute(path: str, content: str, mode="overwrite") -> str:
+def execute(path: str, content: str, mode="overwrite", line_start=0, line_end=0) -> str:
     """
-    Write or append content to a file | 写入或追加内容到文件
+    Write, append, or edit content in a file
 
     Args:
-        path: Full path of the file | 文件的完整路径
-        content: Content to be written | 要写入的内容
-        mode: Write mode, "overwrite" (overwrite) or "append" (append), default is "overwrite" | 写入模式，"overwrite"（覆盖）或 "append"（追加），默认为 "overwrite"
+        path: Full path of the file
+        content: Content to be written
+        mode: Write mode - "overwrite", "append", or "edit"
+        line_start: Start line number for edit mode (1-based, inclusive)
+        line_end: End line number for edit mode (1-based, inclusive)
 
     Returns:
-        Operation result information | 操作结果信息
+        Operation result information
     """
     try:
-        # Resolve the path and handle user directory symbol (~) | 解析路径，处理用户目录符号(~)
+        # Resolve the path and handle user directory symbol (~)
         p = Path(path).expanduser().resolve()
 
-        # Ensure the parent directory exists | 确保父目录存在
+        # Ensure the parent directory exists
         p.parent.mkdir(parents=True, exist_ok=True)
 
-        # Select file opening mode based on the parameter | 根据模式选择文件打开方式
-        flag = 'a' if mode == 'append' else 'w'
+        if mode == "edit":
+            # Edit mode: replace lines from line_start to line_end (1-based, inclusive)
+            if line_start < 1:
+                return "Edit failed: line_start must be >= 1"
+            if line_end < line_start:
+                return "Edit failed: line_end must be >= line_start"
 
-        # Write content to the file | 写入内容
-        with open(p, flag, encoding='utf-8') as f:
-            f.write(content)
+            if not p.exists():
+                return f"Edit failed: File does not exist - {p}"
 
-        # Return success message | 返回成功信息
-        return f"Successfully {'appended to' if mode=='append' else 'wrote to'} file: {p} | 成功{'追加' if mode=='append' else '写入'}文件：{p}"
+            with open(p, 'r', encoding='utf-8') as f:
+                original = f.read()
+
+            lines = original.split('\n')
+            total_lines = len(lines)
+
+            if line_start > total_lines:
+                return f"Edit failed: line_start ({line_start}) exceeds total lines ({total_lines})"
+
+            # Clamp line_end to file length
+            effective_end = min(line_end, total_lines)
+
+            # Replace lines [line_start, line_end] with content
+            # Empty content deletes the line range
+            new_lines = content.split('\n') if content else []
+            lines[line_start - 1:effective_end] = new_lines
+
+            with open(p, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(lines))
+
+            return f"Successfully edited file: {p} (L{line_start}-L{effective_end} replaced)"
+        else:
+            # Select file opening mode based on the parameter
+            flag = 'a' if mode == 'append' else 'w'
+
+            # Write content to the file
+            with open(p, flag, encoding='utf-8') as f:
+                f.write(content)
+
+            # Return success message
+            return f"Successfully {'appended to' if mode=='append' else 'wrote to'} file: {p}"
     except Exception as e:
-        return f"Write failed: {e} | 写入失败：{e}"
+        return f"Write failed: {e}"

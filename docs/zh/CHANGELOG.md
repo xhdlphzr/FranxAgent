@@ -216,3 +216,10 @@
 - 共享状态集中到 `src/state.py` 和 `knowledge/config.py` — 消除全局变量散落。
 - `save_skill/tool.py` 更新为新模块路径（`knowledge.vector.add_document`、`knowledge.config`）。
 - 启动方式变更：需从项目根目录执行 `python -m src.app`（因包导入调整）。
+
+## [v4.14.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.14.0)
+- `read` 工具集成 tree-sitter：代码文件自动返回 AST 结构骨架（类、函数、导入等）及行号范围，支持 11 种语言（C/C++/Python/Java/Rust/Go/JS/HTML/CSS/TS/C#）。
+- `read` 工具输出增加行号：所有文本文件（含非代码文件）返回带行号的内容，便于精确定位。
+- `read` 工具支持目录扫描：传入目录路径时，返回项目结构地图（所有代码文件的骨架摘要），一次调用即可了解全局架构。
+- `write` 工具新增 `edit` 模式：按行号范围（`line_start`、`line_end`）精确替换文件内容，与 `read` 的行号体系完全对齐。
+- 更新中英文 README，同步工具说明与使用示例。

@@ -215,3 +215,10 @@
 - Shared state centralized in `src/state.py` and `knowledge/config.py` — eliminates global variable scattering.
 - `add_skill/tool.py` updated to use new module paths (`knowledge.vector.add_document`, `knowledge.config`).
 - Launch method changed: now requires `python -m src.app` from project root (due to package imports).
+
+## [v4.14.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.14.0)
+- Integrated tree-sitter into `read` tool: Code files now return an AST structure skeleton (classes, functions, imports, etc.) with line ranges, supporting 11 languages (C/C++/Python/Java/Rust/Go/JS/HTML/CSS/TS/C#).
+- Added line numbers to `read` output: All text files (including non-code) now display content with line numbers for precise positioning.
+- Added directory scanning to `read` tool: Passing a directory path returns a project structure map (skeleton summary of all code files), providing a full architectural overview in one call.
+- Added `edit` mode to `write` tool: Precisely replace file content by line number range (`line_start`, `line_end`), fully aligned with `read`'s line numbers.
+- Updated English and Chinese READMEs with synced tool descriptions and usage examples.
