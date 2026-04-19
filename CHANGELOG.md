@@ -35,6 +35,9 @@
 ## [v2.1.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v2.1.0)
 - Streaming output for chat responses.
 
+## [v2.1.1](https://github.com/xhdlphzr/FranxAgent/releases/tag/v2.1.1)
+- Improve user experience.
+
 ## [v2.2.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v2.2.0)
 - Stop generation button to interrupt AI replies at any time.
 - Improved user experience details.

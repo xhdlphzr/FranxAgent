@@ -36,6 +36,9 @@
 ## [v2.1.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v2.1.0)
 - 聊天响应改为流式输出。
 
+## [v2.1.1](https://github.com/xhdlphzr/FranxAgent/releases/tag/v2.1.1)
+- 提升用户体验。
+
 ## [v2.2.0](https://github.com/xhdlphzr/FranxAgent/releases/tag/v2.2.0)
 - 停止生成按钮，可随时中断 AI 回复。
 - 优化用户体验细节。
