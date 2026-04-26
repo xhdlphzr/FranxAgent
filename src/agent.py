@@ -9,6 +9,7 @@ Agent Module - Core Implementation of AI Agent
 Provides the FranxAgent class, responsible for interacting with AI models, tool calling, and memory management
 """
 
+import os
 import json
 import sys
 import atexit
@@ -209,13 +210,25 @@ class FranxAgent:
         self.tools_metadata = tools_metadata
         self.tools = self.tools_metadata
 
+        if os.path.exists("messages.json"):
+            with open("messages.json", "r") as f:
+                self.messages = json.load(f)
+
         # Fixed base system prompt (contains USER_GUIDE and user settings)
         self.base_system_prompt = f"{USER_GUIDE}\n\n---\n\n{self.user_settings}"
         # Persistent message history: first message is always the base system prompt
-        self.messages = [{"role": "system", "content": self.base_system_prompt}]
+        self.messages[0] = {"role": "system", "content": self.base_system_prompt}
+
+        def download_messages(self):
+            """
+            Download the current message history to a file
+            """
+            with open("./messages.json", "w") as f:
+                json.dump(self.messages, f, ensure_ascii=False, indent=4)
 
         # Register cleanup of MCP clients on exit
         atexit.register(cleanup_mcp_clients)
+        atexit.register(download_messages)
 
     def input(self, msg: str):
         """
