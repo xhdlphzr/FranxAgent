@@ -252,3 +252,7 @@
 
 ## [v4.16.1](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.16.1)
 - Fixed bug in `src/agent.py` where `thinking` mode is enabled, but `reasoning_content` is empty.
+
+## [v4.17.0] - 2026-04-26
+- Add the function of complete inheritance memory across sessions.
+- Completely solved the problems caused by compression related to tool invocation and result matching.

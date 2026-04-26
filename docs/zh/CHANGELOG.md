@@ -252,3 +252,7 @@
 
 ## [v4.16.1](https://github.com/xhdlphzr/FranxAgent/releases/tag/v4.16.1)
 - 修复 `src/agent.py` 中 `thinking` 模式下，`reasoning_content` 为空的问题。
+
+## [v4.17.0] - 2026-04-26
+- 新增完全继承会话记忆功能。
+- 完全解决了压缩导致的工具调用和结果的匹配问题。
